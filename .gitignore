@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environment
+venv/
+.venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Distribution
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Generated artifacts (keep structure, ignore contents)
+models/*.joblib
+models/*.json
+logs/*.log
+logs/*.json
+reports/
+data/production/*.csv
+!data/baseline/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Pytest
+.pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+notebooks/*.ipynb
+
+# Environment variables
+.env
+.env.local
+
+# Streamlit
+.streamlit/secrets.toml

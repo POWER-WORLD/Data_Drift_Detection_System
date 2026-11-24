@@ -83,18 +83,23 @@ def setup_logger(name: str, level: int = logging.INFO) -> logging.Logger:
     )
 
     if not has_rotating:
-        LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
-        file_handler = logging.handlers.RotatingFileHandler(
-            LOG_FILE,
-            maxBytes=_LOG_MAX_BYTES,
-            backupCount=_LOG_BACKUP_COUNT,
-            encoding="utf-8",
-        )
-        file_handler.setLevel(level)
-        file_handler.setFormatter(
-            logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
-        )
-        logger.addHandler(file_handler)
+        try:
+            LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
+            file_handler = logging.handlers.RotatingFileHandler(
+                LOG_FILE,
+                maxBytes=_LOG_MAX_BYTES,
+                backupCount=_LOG_BACKUP_COUNT,
+                encoding="utf-8",
+            )
+            file_handler.setLevel(level)
+            file_handler.setFormatter(
+                logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
+            )
+            logger.addHandler(file_handler)
+        except (OSError, PermissionError):
+            # In read-only serverless environments (e.g. Vercel, AWS Lambda),
+            # suppress file handler creation and rely exclusively on StreamHandler (stdout)
+            pass
 
     if not has_stream:
         console_handler = logging.StreamHandler()

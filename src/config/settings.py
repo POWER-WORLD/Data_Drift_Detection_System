@@ -20,9 +20,12 @@ MODELS_DIR: Path = PROJECT_ROOT / "models"
 REPORTS_DIR: Path = PROJECT_ROOT / "reports"
 LOGS_DIR: Path = PROJECT_ROOT / "logs"
 
-# Ensure all runtime output directories exist
+# Ensure all runtime output directories exist (graceful fallback for read-only serverless environments)
 for directory in (BASELINE_DIR, PRODUCTION_DIR, MODELS_DIR, REPORTS_DIR, LOGS_DIR):
-    directory.mkdir(parents=True, exist_ok=True)
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+    except (OSError, PermissionError):
+        pass
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Dataset Definitions

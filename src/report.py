@@ -24,6 +24,7 @@ def generate_drift_report(
     batch_name: str = "Unknown",
     performance: Optional[Dict[str, Any]] = None,
     alerts: Optional[List[Dict[str, Any]]] = None,
+    save_to_disk: bool = True,
 ) -> Dict[str, Path]:
     """
     Generate downloadable JSON and CSV report artifacts.
@@ -33,87 +34,99 @@ def generate_drift_report(
         batch_name: Name identifier for the production batch.
         performance: Model performance comparison dictionary (optional).
         alerts: List of generated alerts (optional).
+        save_to_disk: If True, writes files to REPORTS_DIR (default True for testing/audit).
 
     Returns:
         Dictionary mapping report types ('json', 'csv', 'alerts_csv') to Path objects.
     """
+    generated_files: Dict[str, Path] = {}
+    if not save_to_disk:
+        return generated_files
+
     timestamp = get_timestamp()
     report_directory = REPORTS_DIR / f"report_{timestamp}"
-    report_directory.mkdir(parents=True, exist_ok=True)
-    generated_files: Dict[str, Path] = {}
+    try:
+        report_directory.mkdir(parents=True, exist_ok=True)
+    except (OSError, PermissionError) as exc:
+        logger.warning("Read-only filesystem: skipping report file generation: %s", exc)
+        return generated_files
 
-    # ── JSON Comprehensive Report ─────────────────────────────────────────
-    full_report_payload = {
-        "report_date": datetime.now().isoformat(),
-        "batch_name": batch_name,
-        "dataset_drift": drift_report.get("dataset_drift", {}),
-        "feature_drift_summary": _summarize_features(drift_report),
-        "performance": performance,
-        "alerts": alerts,
-        "recommended_action": _get_recommendation(drift_report),
-    }
+    try:
+        # ── JSON Comprehensive Report ─────────────────────────────────────────
+        full_report_payload = {
+            "report_date": datetime.now().isoformat(),
+            "batch_name": batch_name,
+            "dataset_drift": drift_report.get("dataset_drift", {}),
+            "feature_drift_summary": _summarize_features(drift_report),
+            "performance": performance,
+            "alerts": alerts,
+            "recommended_action": _get_recommendation(drift_report),
+        }
 
-    json_path = report_directory / "drift_report.json"
-    with open(json_path, "w", encoding="utf-8") as file_handle:
-        json.dump(
-            full_report_payload,
-            file_handle,
-            indent=2,
-            default=json_default_serializer,
-        )
-    generated_files["json"] = json_path
+        json_path = report_directory / "drift_report.json"
+        with open(json_path, "w", encoding="utf-8") as file_handle:
+            json.dump(
+                full_report_payload,
+                file_handle,
+                indent=2,
+                default=json_default_serializer,
+            )
+        generated_files["json"] = json_path
 
-    # ── CSV Feature Drift Summary ─────────────────────────────────────────
-    summary_rows: List[Dict[str, Any]] = []
+        # ── CSV Feature Drift Summary ─────────────────────────────────────────
+        summary_rows: List[Dict[str, Any]] = []
 
-    # Numerical feature drift metrics
-    numerical_drift = drift_report.get("feature_drift", {}).get("numerical", {})
-    for col, tests in numerical_drift.items():
-        ks_data = tests.get("ks_test", {})
-        psi_data = tests.get("psi", {})
-        js_data = tests.get("jensen_shannon", {})
-        ms_data = tests.get("mean_shift", {})
+        # Numerical feature drift metrics
+        numerical_drift = drift_report.get("feature_drift", {}).get("numerical", {})
+        for col, tests in numerical_drift.items():
+            ks_data = tests.get("ks_test", {})
+            psi_data = tests.get("psi", {})
+            js_data = tests.get("jensen_shannon", {})
+            ms_data = tests.get("mean_shift", {})
 
-        summary_rows.append({
-            "feature": col,
-            "type": "numerical",
-            "ks_statistic": ks_data.get("statistic"),
-            "ks_pvalue": ks_data.get("p_value"),
-            "ks_drift": ks_data.get("drift_detected"),
-            "psi_value": psi_data.get("value"),
-            "psi_severity": psi_data.get("severity"),
-            "js_distance": js_data.get("value"),
-            "js_severity": js_data.get("severity"),
-            "mean_shift_pct": ms_data.get("pct_change"),
-        })
+            summary_rows.append({
+                "feature": col,
+                "type": "numerical",
+                "ks_statistic": ks_data.get("statistic"),
+                "ks_pvalue": ks_data.get("p_value"),
+                "ks_drift": ks_data.get("drift_detected"),
+                "psi_value": psi_data.get("value"),
+                "psi_severity": psi_data.get("severity"),
+                "js_distance": js_data.get("value"),
+                "js_severity": js_data.get("severity"),
+                "mean_shift_pct": ms_data.get("pct_change"),
+            })
 
-    # Categorical feature drift metrics
-    categorical_drift = drift_report.get("feature_drift", {}).get("categorical", {})
-    for col, tests in categorical_drift.items():
-        chi2_data = tests.get("chi_square", {})
-        nc_data = tests.get("new_categories", {})
+        # Categorical feature drift metrics
+        categorical_drift = drift_report.get("feature_drift", {}).get("categorical", {})
+        for col, tests in categorical_drift.items():
+            chi2_data = tests.get("chi_square", {})
+            nc_data = tests.get("new_categories", {})
 
-        summary_rows.append({
-            "feature": col,
-            "type": "categorical",
-            "chi2_statistic": chi2_data.get("statistic"),
-            "chi2_pvalue": chi2_data.get("p_value"),
-            "chi2_drift": chi2_data.get("drift_detected"),
-            "new_categories_count": nc_data.get("new_count", 0),
-            "new_categories": str(nc_data.get("new_categories", [])),
-        })
+            summary_rows.append({
+                "feature": col,
+                "type": "categorical",
+                "chi2_statistic": chi2_data.get("statistic"),
+                "chi2_pvalue": chi2_data.get("p_value"),
+                "chi2_drift": chi2_data.get("drift_detected"),
+                "new_categories_count": nc_data.get("new_count", 0),
+                "new_categories": str(nc_data.get("new_categories", [])),
+            })
 
-    csv_path = report_directory / "feature_drift_summary.csv"
-    pd.DataFrame(summary_rows).to_csv(csv_path, index=False)
-    generated_files["csv"] = csv_path
+        csv_path = report_directory / "feature_drift_summary.csv"
+        pd.DataFrame(summary_rows).to_csv(csv_path, index=False)
+        generated_files["csv"] = csv_path
 
-    # ── Alerts CSV (if alerts exist) ──────────────────────────────────────
-    if alerts:
-        alerts_path = report_directory / "alerts.csv"
-        pd.DataFrame(alerts).to_csv(alerts_path, index=False)
-        generated_files["alerts_csv"] = alerts_path
+        # ── Alerts CSV (if alerts exist) ──────────────────────────────────────
+        if alerts:
+            alerts_path = report_directory / "alerts.csv"
+            pd.DataFrame(alerts).to_csv(alerts_path, index=False)
+            generated_files["alerts_csv"] = alerts_path
 
-    logger.info("Successfully generated drift report artifacts in %s", report_directory)
+        logger.info("Successfully generated drift report artifacts in %s", report_directory)
+    except (OSError, PermissionError) as exc:
+        logger.warning("Read-only filesystem: could not write reports: %s", exc)
+
     return generated_files
 
 

@@ -18,39 +18,51 @@ logger = setup_logger(__name__)
 
 ALERTS_FILE: Path = LOGS_DIR / "alerts.json"
 
+# In-memory alert store for zero disk write dependence and serverless safety
+_IN_MEMORY_ALERTS: List[Dict[str, Any]] = []
+
 
 def _load_alerts() -> List[Dict[str, Any]]:
     """
-    Load existing alerts from persistent storage with error recovery.
+    Load existing alerts from persistent storage or in-memory cache with error recovery.
 
     Returns:
-        List of alert dictionaries (empty list on non-existent or corrupt file).
+        List of alert dictionaries.
     """
     if ALERTS_FILE.exists():
         try:
             with open(ALERTS_FILE, "r", encoding="utf-8") as file_handle:
                 data = json.load(file_handle)
-                return data if isinstance(data, list) else []
+                if isinstance(data, list):
+                    return data
         except (json.JSONDecodeError, ValueError) as exc:
             logger.error("Corrupted alerts file detected, resetting cache: %s", exc)
             return []
-    return []
+        except (OSError, PermissionError) as exc:
+            logger.warning("Could not read alerts file (%s), falling back to in-memory: %s", ALERTS_FILE, exc)
+    return list(_IN_MEMORY_ALERTS)
 
 
 def _save_alerts(alerts: List[Dict[str, Any]]) -> None:
     """
-    Persist alert list to file atomically using a temporary file.
+    Persist alert list to in-memory store and atomically to file if writable.
 
     Args:
         alerts: List of alert dictionaries to serialize.
     """
-    ALERTS_FILE.parent.mkdir(parents=True, exist_ok=True)
-    temp_file = ALERTS_FILE.with_suffix(f"{ALERTS_FILE.suffix}.tmp")
+    global _IN_MEMORY_ALERTS
+    _IN_MEMORY_ALERTS = list(alerts)
 
-    with open(temp_file, "w", encoding="utf-8") as file_handle:
-        json.dump(alerts, file_handle, indent=2, default=json_default_serializer)
+    try:
+        ALERTS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        temp_file = ALERTS_FILE.with_suffix(f"{ALERTS_FILE.suffix}.tmp")
 
-    temp_file.replace(ALERTS_FILE)
+        with open(temp_file, "w", encoding="utf-8") as file_handle:
+            json.dump(alerts, file_handle, indent=2, default=json_default_serializer)
+
+        temp_file.replace(ALERTS_FILE)
+    except (OSError, PermissionError) as exc:
+        logger.debug("Read-only filesystem: alerts retained in-memory (%s)", exc)
 
 
 def generate_alerts(
@@ -182,7 +194,9 @@ def get_all_alerts() -> List[Dict[str, Any]]:
 
 
 def clear_alerts() -> None:
-    """Clear all historical alerts from storage."""
+    """Clear all historical alerts from storage and in-memory cache."""
+    global _IN_MEMORY_ALERTS
+    _IN_MEMORY_ALERTS.clear()
     _save_alerts([])
     logger.info("All stored alerts cleared successfully.")
 

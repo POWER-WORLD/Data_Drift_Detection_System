@@ -118,6 +118,9 @@ _ANALYSIS_CACHE: dict[str, Any] = {
     "production_df": None,
 }
 
+# In-memory registry for uploaded batches in serverless environments (zero disk write dependency)
+_UPLOADED_DATASETS: dict[str, pd.DataFrame] = {}
+
 
 # ── API Endpoints ──────────────────────────────────────────────────────────
 
@@ -147,10 +150,11 @@ def get_health() -> JSONResponse:
 
 @app.get("/api/batches")
 def get_production_batches() -> JSONResponse:
-    """Return list of available production batch CSV files."""
+    """Return list of available production batch CSV files including in-memory batches."""
     try:
         batches = list_production_batches()
         items = []
+        seen_names = set()
         for p in batches:
             size_kb = round(p.stat().st_size / 1024, 1)
             items.append({
@@ -158,6 +162,18 @@ def get_production_batches() -> JSONResponse:
                 "path": str(p),
                 "size_kb": size_kb,
             })
+            seen_names.add(p.name)
+
+        # Include any in-memory uploaded batches
+        for name, df in _UPLOADED_DATASETS.items():
+            if name not in seen_names and not name.endswith("_baseline.csv"):
+                items.append({
+                    "filename": name,
+                    "path": f"memory://{name}",
+                    "size_kb": round(df.memory_usage(deep=True).sum() / 1024, 1),
+                })
+                seen_names.add(name)
+
         return JSONResponse(clean_for_json({"batches": items}))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to list batches: {exc}")
@@ -179,7 +195,7 @@ def analyze_batch(payload: dict) -> JSONResponse:
         raise HTTPException(status_code=400, detail="Missing 'batch_name' in request payload.")
 
     batch_path = PRODUCTION_DIR / sanitize_filename(batch_name)
-    if not batch_path.exists():
+    if batch_name not in _UPLOADED_DATASETS and not batch_path.exists():
         raise HTTPException(status_code=404, detail=f"Batch '{batch_name}' does not exist.")
 
     # Apply optional threshold overrides
@@ -189,13 +205,19 @@ def analyze_batch(payload: dict) -> JSONResponse:
             DRIFT_THRESHOLDS[k] = float(v)
 
     try:
-        production_df = load_production_batch(batch_path, allow_any_schema=True)
+        if batch_name in _UPLOADED_DATASETS:
+            production_df = _UPLOADED_DATASETS[batch_name].copy()
+        else:
+            production_df = load_production_batch(batch_path, allow_any_schema=True)
 
         # Determine appropriate baseline dataset (custom schema vs standard Telco)
-        dataset_stem = batch_path.stem
-        custom_baseline_path = BASELINE_DIR / f"{dataset_stem}_baseline.csv"
+        dataset_stem = Path(batch_name).stem
+        custom_baseline_name = f"{dataset_stem}_baseline.csv"
+        custom_baseline_path = BASELINE_DIR / custom_baseline_name
 
-        if custom_baseline_path.exists():
+        if custom_baseline_name in _UPLOADED_DATASETS:
+            baseline_df = _UPLOADED_DATASETS[custom_baseline_name].copy()
+        elif custom_baseline_path.exists():
             baseline_df = load_baseline_data(filepath=custom_baseline_path, allow_any_schema=True)
         else:
             telco_features = set(NUMERICAL_FEATURES + CATEGORICAL_FEATURES)
@@ -253,12 +275,13 @@ def analyze_batch(payload: dict) -> JSONResponse:
             performance_comparison=performance,
         )
 
-        # 4. Generate Audit Report
+        # 4. Generate Audit Report (in-memory, no disk accumulation)
         report_paths = generate_drift_report(
             drift_report=drift_report,
             batch_name=batch_name,
             performance=performance,
             alerts=alerts,
+            save_to_disk=False,
         )
 
         # Cache session data
@@ -298,13 +321,18 @@ def get_feature_distribution(
         try:
             active_batch = batch_name or _ANALYSIS_CACHE.get("active_batch") or "batch_01_no_drift.csv"
             batch_path = PRODUCTION_DIR / sanitize_filename(active_batch)
-            if not batch_path.exists():
-                batch_path = PRODUCTION_DIR / "batch_01_no_drift.csv"
+            if active_batch in _UPLOADED_DATASETS:
+                production_df = _UPLOADED_DATASETS[active_batch].copy()
+            else:
+                if not batch_path.exists():
+                    batch_path = PRODUCTION_DIR / "batch_01_no_drift.csv"
+                production_df = load_production_batch(batch_path, allow_any_schema=True)
 
-            production_df = load_production_batch(batch_path, allow_any_schema=True)
-
-            custom_baseline_path = BASELINE_DIR / f"{batch_path.stem}_baseline.csv"
-            if custom_baseline_path.exists():
+            custom_baseline_name = f"{Path(active_batch).stem}_baseline.csv"
+            custom_baseline_path = BASELINE_DIR / custom_baseline_name
+            if custom_baseline_name in _UPLOADED_DATASETS:
+                baseline_df = _UPLOADED_DATASETS[custom_baseline_name].copy()
+            elif custom_baseline_path.exists():
                 baseline_df = load_baseline_data(filepath=custom_baseline_path, allow_any_schema=True)
             else:
                 telco_features = set(NUMERICAL_FEATURES + CATEGORICAL_FEATURES)
@@ -396,25 +424,34 @@ async def upload_batch(file: UploadFile = File(...)) -> JSONResponse:
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"Failed to parse CSV file: {exc}")
 
-    # Save production file to disk
-    with open(dest_path, "wb") as f_out:
-        f_out.write(content)
+    # Save production file to in-memory cache and try disk if writable
+    _UPLOADED_DATASETS[safe_name] = df_preview
+    try:
+        with open(dest_path, "wb") as f_out:
+            f_out.write(content)
+    except (OSError, PermissionError) as exc:
+        logger.warning("Read-only filesystem: dataset '%s' stored in-memory: %s", safe_name, exc)
 
     # For custom datasets (non-Telco schema), ensure a baseline reference is available
     baseline_filename = "telco_churn.csv"
     if not schema_info["is_telco_schema"]:
         dataset_stem = Path(safe_name).stem
-        custom_baseline_path = BASELINE_DIR / f"{dataset_stem}_baseline.csv"
-        # If no baseline file exists for this dataset, create reference slice from the dataset
-        if not custom_baseline_path.exists():
-            split_idx = max(2, int(len(df_preview) * 0.5))
-            baseline_slice = df_preview.iloc[:split_idx].copy()
-            baseline_slice.to_csv(custom_baseline_path, index=False)
-            logger.info(
-                "Created baseline reference for custom dataset '%s' with %d rows in %s",
-                safe_name, len(baseline_slice), custom_baseline_path
-            )
-        baseline_filename = custom_baseline_path.name
+        custom_baseline_name = f"{dataset_stem}_baseline.csv"
+        split_idx = max(2, int(len(df_preview) * 0.5))
+        baseline_slice = df_preview.iloc[:split_idx].copy()
+        _UPLOADED_DATASETS[custom_baseline_name] = baseline_slice
+
+        custom_baseline_path = BASELINE_DIR / custom_baseline_name
+        try:
+            if not custom_baseline_path.exists():
+                baseline_slice.to_csv(custom_baseline_path, index=False)
+                logger.info(
+                    "Created baseline reference for custom dataset '%s' with %d rows in %s",
+                    safe_name, len(baseline_slice), custom_baseline_path
+                )
+        except (OSError, PermissionError):
+            pass
+        baseline_filename = custom_baseline_name
 
     return JSONResponse(clean_for_json({
         "status": "success",

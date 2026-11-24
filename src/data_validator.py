@@ -7,7 +7,7 @@ Follows PEP 8 and Global Naming Standardization.
 """
 
 from pathlib import Path
-from typing import Any, Dict, List, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -73,13 +73,20 @@ def validate_file(filepath: Union[str, Path]) -> None:
         )
 
 
-def validate_schema(df: pd.DataFrame, require_target: bool = False) -> List[str]:
+def validate_schema(
+    df: pd.DataFrame,
+    require_target: bool = False,
+    allow_any_schema: bool = False,
+    expected_features: Optional[Set[str]] = None,
+) -> List[str]:
     """
-    Validate that the DataFrame contains all mandatory feature columns.
+    Validate that the DataFrame contains expected feature columns.
 
     Args:
         df: DataFrame to validate.
         require_target: If True, the target column must be present.
+        allow_any_schema: If True, accepts any non-empty tabular dataset with valid column names.
+        expected_features: Optional custom set of expected feature columns.
 
     Returns:
         List of warning messages (empty if no issues).
@@ -87,12 +94,25 @@ def validate_schema(df: pd.DataFrame, require_target: bool = False) -> List[str]
     Raises:
         DataValidationError: If mandatory feature or target columns are absent.
     """
+    if len(df) == 0:
+        raise DataValidationError("DataFrame is empty (0 rows).")
+
+    if len(df.columns) == 0:
+        raise DataValidationError("DataFrame contains no columns.")
+
     warnings: List[str] = []
     present_columns = set(df.columns)
 
-    # Check for expected feature columns
-    expected_features = set(NUMERICAL_FEATURES + CATEGORICAL_FEATURES)
-    missing_features = expected_features - present_columns
+    if allow_any_schema:
+        # Dynamic schema mode: ensure valid non-whitespace column names
+        valid_cols = [c for c in df.columns if str(c).strip() and not str(c).startswith("Unnamed:")]
+        if len(valid_cols) == 0:
+            raise DataValidationError("Dataset columns are invalid or contain only empty headers.")
+        return warnings
+
+    # Expected feature columns check
+    features_to_check = expected_features if expected_features is not None else set(NUMERICAL_FEATURES + CATEGORICAL_FEATURES)
+    missing_features = features_to_check - present_columns
     if missing_features:
         raise DataValidationError(
             f"Missing required feature columns: {sorted(missing_features)}"
@@ -111,6 +131,64 @@ def validate_schema(df: pd.DataFrame, require_target: bool = False) -> List[str]
         )
 
     return warnings
+
+
+def inspect_dataset_schema(df: pd.DataFrame) -> Dict[str, Any]:
+    """
+    Dynamically analyze and categorize features in any tabular dataset.
+
+    Automatically identifies:
+        - Numerical features (int, float, or coercible numeric series)
+        - Categorical features (string, category, bool, discrete objects)
+        - Schema match with Telco baseline
+
+    Args:
+        df: Input DataFrame to inspect.
+
+    Returns:
+        Dictionary containing detected numerical and categorical feature lists.
+
+    Raises:
+        DataValidationError: If dataset is empty or lacks columns.
+    """
+    if len(df) == 0:
+        raise DataValidationError("Dataset is empty (0 rows).")
+
+    if len(df.columns) == 0:
+        raise DataValidationError("Dataset contains no columns.")
+
+    numerical_features: List[str] = []
+    categorical_features: List[str] = []
+
+    for col in df.columns:
+        col_str = str(col)
+        series = df[col]
+
+        if pd.api.types.is_numeric_dtype(series):
+            if pd.api.types.is_bool_dtype(series):
+                categorical_features.append(col_str)
+            else:
+                numerical_features.append(col_str)
+        else:
+            # Check if majority can be coerced to numeric cleanly
+            coerced = pd.to_numeric(series, errors="coerce")
+            valid_ratio = coerced.notna().mean()
+            if valid_ratio >= 0.85 and coerced.nunique() > 5:
+                numerical_features.append(col_str)
+            else:
+                categorical_features.append(col_str)
+
+    telco_features = set(NUMERICAL_FEATURES + CATEGORICAL_FEATURES)
+    is_telco = telco_features.issubset(set(df.columns))
+
+    return {
+        "total_rows": int(len(df)),
+        "total_columns": int(len(df.columns)),
+        "numerical_features": numerical_features,
+        "categorical_features": categorical_features,
+        "all_features": numerical_features + categorical_features,
+        "is_telco_schema": is_telco,
+    }
 
 
 def validate_data_quality(df: pd.DataFrame) -> Dict[str, Any]:
@@ -168,7 +246,7 @@ def validate_data_quality(df: pd.DataFrame) -> Dict[str, Any]:
         )
 
     # Infinite values check in numerical features
-    num_cols = [c for c in NUMERICAL_FEATURES if c in df.columns]
+    num_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
     inf_cols: List[Tuple[str, int]] = []
     for col in num_cols:
         numeric_series = pd.to_numeric(df[col], errors="coerce")

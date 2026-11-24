@@ -4,7 +4,7 @@ Security & DevOps Assurance Tests for Data Drift Detection System.
 Validates:
 - Dockerfile hardening (multi-stage build, non-root user, healthcheck, security posture)
 - Container exclusion rules (.dockerignore)
-- Deployment security configurations (vercel.json, netlify.toml)
+- Deployment security configurations (vercel.json)
 - Input sanitization and path traversal defenses
 - Data file validation boundaries
 - Secret leakage prevention (.gitignore)
@@ -87,15 +87,13 @@ class TestSecurityConfiguration:
         missing = expected_headers - header_keys
         assert not missing, f"vercel.json missing required security headers: {missing}"
 
-    def test_netlify_security_headers_and_redirect(self) -> None:
-        """Verify netlify.toml specifies canonical redirect and OWASP security headers."""
+    def test_vercel_is_primary_deployment_target(self) -> None:
+        """Verify vercel.json is the sole production deployment configuration and netlify.toml is removed."""
         netlify_path = PROJECT_ROOT / "netlify.toml"
-        assert netlify_path.exists(), "netlify.toml must exist"
+        assert not netlify_path.exists(), "netlify.toml must be removed as hosting is dedicated to Vercel"
 
-        content = netlify_path.read_text(encoding="utf-8")
-        assert "Content-Security-Policy" in content
-        assert "X-Frame-Options" in content
-        assert "https://dddsystem.vercel.app" in content, "Netlify config must redirect to https://dddsystem.vercel.app"
+        vercel_path = PROJECT_ROOT / "vercel.json"
+        assert vercel_path.exists(), "vercel.json must exist for Vercel deployment"
 
 
 class TestInputSanitizationAndBoundaries:

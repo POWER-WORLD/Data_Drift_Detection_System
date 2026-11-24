@@ -10,7 +10,6 @@
 # CI/CD & Cloud Configurations
 .github/
 .vercel/
-.netlify/
 
 # Virtual Environments
 venv/

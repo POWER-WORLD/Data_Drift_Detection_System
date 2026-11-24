@@ -28,6 +28,8 @@ for directory in (BASELINE_DIR, PRODUCTION_DIR, MODELS_DIR, REPORTS_DIR, LOGS_DI
 # Dataset Definitions
 # ──────────────────────────────────────────────────────────────────────────────
 BASELINE_FILE: Path = BASELINE_DIR / "telco_churn.csv"
+BASELINE_DATA_PATH: Path = BASELINE_FILE
+BASE_DIR: Path = PROJECT_ROOT
 TARGET_COLUMN: str = "Churn"
 ID_COLUMN: str = "customerID"
 
@@ -116,11 +118,3 @@ LOG_FILE: Path = LOGS_DIR / "drift_system.log"
 LOG_FORMAT: str = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
 LOG_DATE_FORMAT: str = "%Y-%m-%d %H:%M:%S"
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Dashboard Settings
-# ──────────────────────────────────────────────────────────────────────────────
-DASHBOARD_SETTINGS: Dict[str, str] = {
-    "page_title": "Data Drift Detection System",
-    "page_icon": "📊",
-    "layout": "wide",
-}

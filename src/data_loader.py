@@ -27,12 +27,16 @@ from src.utils import setup_logger
 logger = setup_logger(__name__)
 
 
-def load_baseline_data(filepath: Optional[Union[str, Path]] = None) -> pd.DataFrame:
+def load_baseline_data(
+    filepath: Optional[Union[str, Path]] = None,
+    allow_any_schema: bool = False,
+) -> pd.DataFrame:
     """
     Load the baseline training dataset with schema validation and sanitization.
 
     Args:
         filepath: Optional path to the CSV file. Defaults to BASELINE_FILE.
+        allow_any_schema: If True, accepts arbitrary schema for custom reference baselines.
 
     Returns:
         Validated and sanitized baseline DataFrame.
@@ -56,8 +60,12 @@ def load_baseline_data(filepath: Optional[Union[str, Path]] = None) -> pd.DataFr
 
     logger.info("Loaded baseline data with %d rows and %d columns", len(df), len(df.columns))
 
-    # Validate schema (target column is mandatory in baseline)
-    schema_warnings = validate_schema(df, require_target=True)
+    # Validate schema (target column is mandatory in default baseline, optional in custom schema)
+    schema_warnings = validate_schema(
+        df,
+        require_target=(not allow_any_schema),
+        allow_any_schema=allow_any_schema,
+    )
     for warning_msg in schema_warnings:
         logger.warning(warning_msg)
 
@@ -75,12 +83,16 @@ def load_baseline_data(filepath: Optional[Union[str, Path]] = None) -> pd.DataFr
     return sanitized_df
 
 
-def load_production_batch(filepath: Union[str, Path]) -> pd.DataFrame:
+def load_production_batch(
+    filepath: Union[str, Path],
+    allow_any_schema: bool = True,
+) -> pd.DataFrame:
     """
     Load a production data batch with schema validation and sanitization.
 
     Args:
         filepath: Path to the production CSV batch file.
+        allow_any_schema: If True, dynamically accepts and sanitizes any dataset schema.
 
     Returns:
         Validated production DataFrame.
@@ -102,7 +114,11 @@ def load_production_batch(filepath: Union[str, Path]) -> pd.DataFrame:
         raise ValueError(f"Failed to parse production CSV: {exc}")
 
     # Validate schema (target column is optional in production)
-    schema_warnings = validate_schema(df, require_target=False)
+    schema_warnings = validate_schema(
+        df,
+        require_target=False,
+        allow_any_schema=allow_any_schema,
+    )
     for warning_msg in schema_warnings:
         logger.warning(warning_msg)
 

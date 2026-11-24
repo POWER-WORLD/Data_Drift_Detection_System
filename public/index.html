@@ -1,61 +1,475 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
-  <meta charset="UTF-8" />
-  <meta http-equiv="refresh" content="0; url=https://dddsystem.vercel.app" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="Data Drift Detection System for ML Models" />
-  <title>Data Drift Detection System — Live Demo</title>
-  <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: #0f172a;
-      color: #f8fafc;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-      text-align: center;
-    }
-    .card {
-      background: #1e293b;
-      padding: 2.5rem;
-      border-radius: 16px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      max-width: 480px;
-    }
-    h1 {
-      font-size: 1.5rem;
-      margin-bottom: 0.75rem;
-      color: #38bdf8;
-    }
-    p {
-      color: #94a3b8;
-      font-size: 0.95rem;
-      margin-bottom: 1.5rem;
-    }
-    a.btn {
-      display: inline-block;
-      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-      color: #ffffff;
-      text-decoration: none;
-      padding: 0.75rem 1.5rem;
-      border-radius: 8px;
-      font-weight: 600;
-      transition: opacity 0.2s;
-    }
-    a.btn:hover {
-      opacity: 0.9;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Drift Detection — ML Intelligence & Monitoring</title>
+    <link rel="icon" type="image/png" href="/images/logo.png">
+    
+    <!-- Modern Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Plotly.js for interactive telemetry charts -->
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+    
+    <!-- Design System CSS -->
+    <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-  <div class="card">
-    <h1>Data Drift Detection System</h1>
-    <p>Redirecting to the official deployment...</p>
-    <a class="btn" href="https://dddsystem.vercel.app">Access Application &rarr;</a>
-  </div>
+    <div class="app-layout">
+        <!-- ══════════════════════════════════════════════════════════════════
+             SIDEBAR: BRAND, THEME TOGGLE, NAVIGATION & TELEMETRY STATUS
+             ══════════════════════════════════════════════════════════════════ -->
+        <aside class="sidebar">
+            <div class="sidebar-brand-card">
+                <div class="sidebar-brand-top">
+                    <img src="/images/logo.png" alt="DataDrift Logo" class="sidebar-logo-img">
+                    <div>
+                        <div class="sidebar-brand-title">DataDrift</div>
+                        <div class="sidebar-brand-sub">ML Monitor & Intelligence</div>
+                    </div>
+                    <span class="badge-version">v2.0</span>
+                </div>
+            </div>
+
+            <!-- Theme Toggle: Dark vs White Mode -->
+            <div class="theme-switcher-container">
+                <div class="theme-switch-pills">
+                    <button class="theme-pill-btn active" id="btn-theme-dark" onclick="setTheme('dark')">
+                        🌙 Dark
+                    </button>
+                    <button class="theme-pill-btn" id="btn-theme-light" onclick="setTheme('light')">
+                        ☀️ Light
+                    </button>
+                </div>
+            </div>
+
+            <div class="sidebar-divider"></div>
+
+            <!-- Navigation Links -->
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-view="view-overview" onclick="switchView('view-overview')">
+                    <span class="nav-icon">🏠</span> Overview
+                </button>
+                <button class="nav-item" data-view="view-drift-analysis" onclick="switchView('view-drift-analysis')">
+                    <span class="nav-icon">🔬</span> Drift Analysis
+                </button>
+                <button class="nav-item" data-view="view-model-health" onclick="switchView('view-model-health')">
+                    <span class="nav-icon">🤖</span> Model Health
+                </button>
+                <button class="nav-item" data-view="view-alerts" onclick="switchView('view-alerts')">
+                    <span class="nav-icon">🔔</span> Alerts <span class="nav-alert-counter" id="sidebar-alert-badge">0</span>
+                </button>
+                <button class="nav-item" data-view="view-upload" onclick="switchView('view-upload')">
+                    <span class="nav-icon">🚀</span> Upload & Run
+                </button>
+                <button class="nav-item" data-view="view-settings" onclick="switchView('view-settings')">
+                    <span class="nav-icon">⚙️</span> Settings
+                </button>
+            </nav>
+
+            <div class="sidebar-divider"></div>
+
+            <!-- Telemetry Status Card -->
+            <div class="sidebar-status-card" id="sidebar-status-card">
+                <div class="status-label">Active Batch</div>
+                <div class="status-batch-name" id="sidebar-active-batch">batch_01_no_drift.csv</div>
+                <div class="status-badge" id="sidebar-risk-badge">
+                    <span class="badge-dot green"></span> Low Risk
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <div>Python 3.13 • FastAPI • Scikit-learn</div>
+            </div>
+        </aside>
+
+        <!-- ══════════════════════════════════════════════════════════════════
+             MAIN APPLICATION VIEWPORT
+             ══════════════════════════════════════════════════════════════════ -->
+        <main class="main-content">
+            <!-- ── Top Utility Header ───────────────────────────────────── -->
+            <header class="top-header">
+                <div class="header-left">
+                    <div class="active-crumb-title" id="page-crumb-title">Dashboard Overview</div>
+                    <div class="active-crumb-sub" id="page-crumb-sub">Real-time drift monitoring & model degradation telemetry</div>
+                </div>
+                <div class="header-right">
+                    <a href="https://dddsystem.vercel.app" target="_blank" rel="noopener noreferrer" class="pill-btn pill-btn-primary">
+                        🌐 Production Cloud ↗
+                    </a>
+                </div>
+            </header>
+
+            <!-- ── Dynamic Content Container ────────────────────────────── -->
+            <div class="content-body">
+                <!-- VIEW 1: OVERVIEW -->
+                <section class="view-panel active" id="view-overview">
+                    <div class="kpi-grid">
+                        <div class="kpi-card">
+                            <span class="kpi-icon">🛡️</span>
+                            <div class="kpi-label">Overall Risk</div>
+                            <div class="kpi-value text-green" id="kpi-overall-risk">LOW</div>
+                            <div class="kpi-delta positive" id="kpi-risk-delta">Dataset Healthy</div>
+                        </div>
+                        <div class="kpi-card">
+                            <span class="kpi-icon">📊</span>
+                            <div class="kpi-label">Drifted Features</div>
+                            <div class="kpi-value text-blue" id="kpi-drifted-count">-- / --</div>
+                            <div class="kpi-delta positive" id="kpi-drifted-pct">0.0% shifted</div>
+                        </div>
+                        <div class="kpi-card">
+                            <span class="kpi-icon">🤖</span>
+                            <div class="kpi-label">Model Health</div>
+                            <div class="kpi-value text-green" id="kpi-model-health">HEALTHY</div>
+                            <div class="kpi-delta positive" id="kpi-health-delta">Telemetry Active</div>
+                        </div>
+                        <div class="kpi-card">
+                            <span class="kpi-icon">🎯</span>
+                            <div class="kpi-label">Avg Confidence</div>
+                            <div class="kpi-value text-blue" id="kpi-avg-confidence">--</div>
+                            <div class="kpi-delta positive">Certainty</div>
+                        </div>
+                    </div>
+
+                    <div class="chart-grid-two">
+                        <div class="panel-card">
+                            <div class="panel-header">📈 Dataset Risk Score Gauge</div>
+                            <div class="chart-scroll-wrapper">
+                                <div id="chart-risk-gauge" class="chart-container-sm"></div>
+                            </div>
+                        </div>
+                        <div class="panel-card">
+                            <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+                                <span>🔍 Feature Drift Breakdown (PSI Divergence)</span>
+                                <span class="scroll-badge-pill">↔ Horizontal Scroll</span>
+                            </div>
+                            <div class="chart-scroll-wrapper">
+                                <div id="chart-feature-psi" class="chart-container-sm"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="panel-card" style="margin-top: 20px;">
+                        <div class="panel-header">📋 Feature Drift Breakdown Summary</div>
+                        <div class="table-responsive">
+                            <table class="data-table" id="table-overview-features">
+                                <thead>
+                                    <tr>
+                                        <th>Feature</th>
+                                        <th>Type</th>
+                                        <th>Primary Test</th>
+                                        <th>Statistic</th>
+                                        <th>p-value / Divergence</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td colspan="6" class="text-center">Loading feature metrics...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 2: DRIFT ANALYSIS -->
+                <section class="view-panel" id="view-drift-analysis">
+                    <div class="panel-card">
+                        <div class="panel-header-controls">
+                            <div style="display:flex;align-items:center;gap:12px;">
+                                <div class="panel-header">🔬 Feature Distribution Drill-Down</div>
+                                <span class="scroll-badge-pill">↔ Horizontal Scroll</span>
+                            </div>
+                            <div class="select-group">
+                                <label for="select-drift-feature" class="field-label">Feature:</label>
+                                <select id="select-drift-feature" class="select-input" onchange="renderFeatureDistribution()">
+                                    <option value="">Select a feature to inspect...</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="chart-scroll-wrapper">
+                            <div id="chart-distribution-overlay" class="chart-container-md"></div>
+                        </div>
+                        
+                        <div class="stats-metric-strip" id="feature-stats-strip">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </div>
+
+                    <div class="panel-card" style="margin-top: 20px;">
+                        <div class="panel-header">📐 Statistical Hypothesis Tests on Selected Feature</div>
+                        <div class="table-responsive">
+                            <table class="data-table" id="table-feature-tests">
+                                <thead>
+                                    <tr>
+                                        <th>Algorithm / Test</th>
+                                        <th>Target Scope</th>
+                                        <th>Computed Metric</th>
+                                        <th>Threshold</th>
+                                        <th>Decision Verdict</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="table-feature-tests-body">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 3: MODEL HEALTH -->
+                <section class="view-panel" id="view-model-health">
+                    <div class="kpi-grid">
+                        <div class="kpi-card">
+                            <span class="kpi-icon">📊</span>
+                            <div class="kpi-label">Baseline F1 Score</div>
+                            <div class="kpi-value text-blue" id="kpi-baseline-f1">--</div>
+                            <div class="kpi-delta positive">Reference</div>
+                        </div>
+                        <div class="kpi-card">
+                            <span class="kpi-icon">⚡</span>
+                            <div class="kpi-label">Batch F1 Score</div>
+                            <div class="kpi-value text-blue" id="kpi-batch-f1">--</div>
+                            <div class="kpi-delta positive" id="kpi-f1-delta">--</div>
+                        </div>
+                        <div class="kpi-card">
+                            <span class="kpi-icon">🎯</span>
+                            <div class="kpi-label">ROC AUC</div>
+                            <div class="kpi-value text-green" id="kpi-roc-auc">--</div>
+                            <div class="kpi-delta positive">Discrimination</div>
+                        </div>
+                        <div class="kpi-card">
+                            <span class="kpi-icon">📉</span>
+                            <div class="kpi-label">Low Confidence Rate</div>
+                            <div class="kpi-value text-yellow" id="kpi-low-conf-rate">--</div>
+                            <div class="kpi-delta positive">Threshold: <20%</div>
+                        </div>
+                    </div>
+
+                    <div class="chart-grid-two" style="margin-top: 20px;">
+                        <div class="panel-card">
+                            <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+                                <span>📊 Baseline vs Production Performance</span>
+                                <span class="scroll-badge-pill">↔ Horizontal Scroll</span>
+                            </div>
+                            <div class="chart-scroll-wrapper">
+                                <div id="chart-metrics-comparison" class="chart-container-sm"></div>
+                            </div>
+                        </div>
+                        <div class="panel-card">
+                            <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;">
+                                <span>🧮 Baseline Confusion Matrix</span>
+                                <span class="scroll-badge-pill">↔ Horizontal Scroll</span>
+                            </div>
+                            <div class="chart-scroll-wrapper">
+                                <div id="chart-confusion-matrix" class="chart-container-sm"></div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 4: ALERTS -->
+                <section class="view-panel" id="view-alerts">
+                    <div class="kpi-grid">
+                        <div class="kpi-card">
+                            <span class="kpi-icon">🔔</span>
+                            <div class="kpi-label">Total Alerts</div>
+                            <div class="kpi-value text-blue" id="kpi-total-alerts">0</div>
+                        </div>
+                        <div class="kpi-card">
+                            <span class="kpi-icon">🚨</span>
+                            <div class="kpi-label">Critical</div>
+                            <div class="kpi-value text-red" id="kpi-crit-alerts">0</div>
+                        </div>
+                        <div class="kpi-card">
+                            <span class="kpi-icon">⚠️</span>
+                            <div class="kpi-label">Warnings</div>
+                            <div class="kpi-value text-yellow" id="kpi-warn-alerts">0</div>
+                        </div>
+                        <div class="kpi-card">
+                            <span class="kpi-icon">ℹ️</span>
+                            <div class="kpi-label">Informational</div>
+                            <div class="kpi-value text-blue" id="kpi-info-alerts">0</div>
+                        </div>
+                    </div>
+
+                    <div class="panel-card" style="margin-top: 20px;">
+                        <div class="filter-controls-row">
+                            <div class="filter-pills-group">
+                                <button class="filter-pill active" onclick="filterAlerts('ALL')">All</button>
+                                <button class="filter-pill" onclick="filterAlerts('CRITICAL')">🚨 Critical</button>
+                                <button class="filter-pill" onclick="filterAlerts('WARNING')">⚠️ Warnings</button>
+                                <button class="filter-pill" onclick="filterAlerts('INFO')">ℹ️ Info</button>
+                            </div>
+                            <div class="filter-actions-group">
+                                <button class="btn btn-secondary" onclick="clearAllAlerts()">🗑️ Clear Alerts</button>
+                            </div>
+                        </div>
+
+                        <div class="alert-stream-container" id="alert-stream-container">
+                            <div class="empty-state">
+                                <span class="empty-icon">🔔</span>
+                                <div class="empty-title">Zero Active Alerts</div>
+                                <div class="empty-desc">The system logs alerts when distribution drift or degradation breaches thresholds.</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 5: UPLOAD & RUN -->
+                <section class="view-panel" id="view-upload">
+                    <div class="panel-card">
+                        <div class="panel-header">📤 Ingest & Run Production Batch</div>
+                        <p class="panel-subtitle">Select an existing production scenario batch or upload a custom CSV to execute full drift detection.</p>
+                        
+                        <div class="batch-selection-form">
+                            <div class="form-group">
+                                <label for="select-preset-batch" class="field-label">Select Production Scenario:</label>
+                                <select id="select-preset-batch" class="select-input">
+                                    <option value="batch_01_no_drift.csv">Batch 01: No Drift (Control)</option>
+                                    <option value="batch_02_mild_drift.csv">Batch 02: Mild Drift (Numerical Shift)</option>
+                                    <option value="batch_03_severe_drift.csv">Batch 03: Severe Drift (Multi-feature Distribution Shift)</option>
+                                    <option value="batch_04_missing_data.csv">Batch 04: Missing Data & Null Anomalies</option>
+                                    <option value="batch_05_category_drift.csv">Batch 05: Categorical Drift (Unseen Values)</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group" style="margin-top: 16px;">
+                                <label class="field-label">Or Upload Custom Batch CSV (Max 50MB):</label>
+                                <div class="file-dropzone" id="dropzone-area">
+                                    <input type="file" id="input-file-batch" accept=".csv" class="file-input" onchange="handleFileSelect(event)">
+                                    <div class="dropzone-label">
+                                        <span class="dropzone-icon">📁</span>
+                                        <div><strong>Click to browse</strong> or drag and drop CSV file</div>
+                                        <div class="dropzone-sub">Accepts ANY CSV dataset schema • Auto-detects numerical & categorical features</div>
+                                    </div>
+                                </div>
+                                <div id="upload-status-msg" class="upload-status-msg"></div>
+                            </div>
+
+                            <div class="action-btn-row" style="margin-top: 24px;">
+                                <button class="btn btn-primary btn-large" id="btn-run-analysis" onclick="executeBatchAnalysis()">
+                                    🔍 Run Full Drift Detection & Telemetry Analysis
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- VIEW 6: SETTINGS -->
+                <section class="view-panel" id="view-settings">
+                    <div class="panel-card">
+                        <div class="panel-header">⚙️ Statistical Sensitivity Calibration</div>
+                        <p class="panel-subtitle">Calibrate hypothesis testing significance alpha levels, divergence limits, and alert triggers.</p>
+                        
+                        <div class="settings-grid">
+                            <div class="settings-card">
+                                <h4>Numerical Tests Calibration</h4>
+                                <div class="slider-group">
+                                    <div class="slider-header">
+                                        <span>Kolmogorov-Smirnov (KS) p-value</span>
+                                        <span id="val-cfg-ks" class="slider-val">0.05</span>
+                                    </div>
+                                    <input type="range" id="slider-cfg-ks" min="0.01" max="0.20" step="0.01" value="0.05" oninput="updateSliderVal('ks')">
+                                </div>
+                                <div class="slider-group">
+                                    <div class="slider-header">
+                                        <span>PSI Moderate Threshold</span>
+                                        <span id="val-cfg-psi-mod" class="slider-val">0.10</span>
+                                    </div>
+                                    <input type="range" id="slider-cfg-psi-mod" min="0.05" max="0.30" step="0.01" value="0.10" oninput="updateSliderVal('psi-mod')">
+                                </div>
+                                <div class="slider-group">
+                                    <div class="slider-header">
+                                        <span>PSI Severe Threshold</span>
+                                        <span id="val-cfg-psi-sev" class="slider-val">0.25</span>
+                                    </div>
+                                    <input type="range" id="slider-cfg-psi-sev" min="0.15" max="0.50" step="0.01" value="0.25" oninput="updateSliderVal('psi-sev')">
+                                </div>
+                            </div>
+
+                            <div class="settings-card">
+                                <h4>Categorical & Risk Calibration</h4>
+                                <div class="slider-group">
+                                    <div class="slider-header">
+                                        <span>Chi-Square (χ²) p-value</span>
+                                        <span id="val-cfg-chi2" class="slider-val">0.05</span>
+                                    </div>
+                                    <input type="range" id="slider-cfg-chi2" min="0.01" max="0.20" step="0.01" value="0.05" oninput="updateSliderVal('chi2')">
+                                </div>
+                                <div class="slider-group">
+                                    <div class="slider-header">
+                                        <span>Jensen-Shannon Divergence</span>
+                                        <span id="val-cfg-js" class="slider-val">0.10</span>
+                                    </div>
+                                    <input type="range" id="slider-cfg-js" min="0.05" max="0.30" step="0.01" value="0.10" oninput="updateSliderVal('js')">
+                                </div>
+                                <div class="slider-group">
+                                    <div class="slider-header">
+                                        <span>Dataset Risk Shift (% Features)</span>
+                                        <span id="val-cfg-risk" class="slider-val">0.20</span>
+                                    </div>
+                                    <input type="range" id="slider-cfg-risk" min="0.10" max="0.50" step="0.05" value="0.20" oninput="updateSliderVal('risk')">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="action-btn-row" style="margin-top: 20px;">
+                            <button class="btn btn-primary" onclick="saveSettings()">💾 Save Runtime Thresholds</button>
+                        </div>
+                    </div>
+
+                    <!-- Author & Architecture Card -->
+                    <div class="panel-card" style="margin-top: 24px;">
+                        <div class="panel-header">👤 System Architecture & Author Profile</div>
+                        <div class="author-details-box">
+                            <div class="author-main-row">
+                                <img src="/images/logo.png" alt="Author Logo" class="author-avatar-lg">
+                                <div>
+                                    <div class="author-profile-name">Pawan Kumar</div>
+                                    <div class="author-profile-role">AI / Machine Learning Systems Architect</div>
+                                </div>
+                                <div class="author-links-pills">
+                                    <a href="https://dddsystem.vercel.app" target="_blank" class="pill-btn pill-btn-primary">🌐 Live System</a>
+                                    <a href="https://pawankumar.info/" target="_blank" class="pill-btn">👨‍💻 Portfolio</a>
+                                    <a href="https://www.linkedin.com/in/pawankumar101/" target="_blank" class="pill-btn">💼 LinkedIn</a>
+                                    <a href="https://leetcode.com/u/pk3253702/" target="_blank" class="pill-btn">⚡ LeetCode</a>
+                                    <a href="https://github.com/POWER-WORLD" target="_blank" class="pill-btn">🐙 GitHub</a>
+                                </div>
+                            </div>
+                            <p class="author-bio">
+                                Architected the <strong>Data Drift Detection Platform</strong> to establish an automated, statistically rigorous monitoring system for machine learning models in production. Integrates 8 statistical drift detection algorithms, stratified 5-fold cross-validation, and responsive UI telemetry.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- ── Single Global Page Footer ────────────────────────────── -->
+            <footer class="saas-footer">
+                <div class="footer-left">
+                    <span style="font-weight:700;color:var(--text-primary);">DataDrift Platform v2.0</span>
+                    <span style="color:var(--text-dim);margin:0 6px;">•</span>
+                    <span style="color:var(--text-muted);">Architected by <strong>Pawan Kumar</strong></span>
+                </div>
+                <div class="footer-links">
+                    <a href="https://dddsystem.vercel.app" target="_blank" class="footer-link">🌐 Live App</a>
+                    <span class="footer-sep">•</span>
+                    <a href="https://pawankumar.info/" target="_blank" class="footer-link">👨‍💻 Portfolio</a>
+                    <span class="footer-sep">•</span>
+                    <a href="https://www.linkedin.com/in/pawankumar101/" target="_blank" class="footer-link">💼 LinkedIn</a>
+                    <span class="footer-sep">•</span>
+                    <a href="https://leetcode.com/u/pk3253702/" target="_blank" class="footer-link">⚡ LeetCode</a>
+                    <span class="footer-sep">•</span>
+                    <a href="https://github.com/POWER-WORLD" target="_blank" class="footer-link">🐙 GitHub</a>
+                </div>
+            </footer>
+        </main>
+    </div>
+
+    <!-- Application Script -->
+    <script src="/js/app.js"></script>
 </body>
 </html>

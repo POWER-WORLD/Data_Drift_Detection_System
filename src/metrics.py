@@ -153,6 +153,11 @@ def compare_performance(
     comparison["overall_health"] = health_status
     comparison["degraded_metrics_count"] = int(degraded_count)
 
+    if "confusion_matrix" in current_metrics and current_metrics["confusion_matrix"]:
+        comparison["confusion_matrix"] = current_metrics["confusion_matrix"]
+    elif "confusion_matrix" in baseline_metrics and baseline_metrics["confusion_matrix"]:
+        comparison["confusion_matrix"] = baseline_metrics["confusion_matrix"]
+
     logger.info(
         "Performance comparison complete: %s (%d degraded metric(s))",
         health_status,

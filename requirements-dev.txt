@@ -6,6 +6,7 @@
 # Automated Testing & Coverage
 pytest>=7.4.0,<10.0.0
 pytest-cov>=4.1.0,<6.1.0
+httpx>=0.24.0,<1.0.0
 
 # Code Formatting & Style Standards
 flake8>=6.1.0,<8.0.0

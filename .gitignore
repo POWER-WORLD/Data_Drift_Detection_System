@@ -87,7 +87,6 @@ data/production/*.csv
 
 # Deployment Platform Artifacts
 .vercel/
-.netlify/
 node_modules/
 
 # Operating System Files

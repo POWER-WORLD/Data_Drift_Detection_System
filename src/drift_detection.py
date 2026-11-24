@@ -518,24 +518,63 @@ def new_category_detection(baseline: pd.Series, production: pd.Series) -> Dict[s
 # ═══════════════════════════════════════════════════════════════════════════════
 
 def analyze_feature_drift(
-    baseline_df: pd.DataFrame, production_df: pd.DataFrame
+    baseline_df: pd.DataFrame,
+    production_df: pd.DataFrame,
+    numerical_features: Optional[List[str]] = None,
+    categorical_features: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
     Run comprehensive statistical drift tests across all numerical and categorical features.
+    Automatically infers features dynamically when custom schemas are provided.
 
     Args:
         baseline_df: Raw baseline DataFrame.
         production_df: Raw production DataFrame.
+        numerical_features: Optional explicit list of numerical column names.
+        categorical_features: Optional explicit list of categorical column names.
 
     Returns:
         Structured dictionary of feature-level drift metrics.
     """
     results: Dict[str, Any] = {"numerical": {}, "categorical": {}, "missing_data": {}}
 
-    # Numerical feature tests
-    for col in NUMERICAL_FEATURES:
-        if col not in baseline_df.columns or col not in production_df.columns:
-            continue
+    # Find common columns between baseline and production
+    common_cols = [
+        str(col) for col in baseline_df.columns
+        if col in production_df.columns and str(col) not in (ID_COLUMN, TARGET_COLUMN)
+    ]
+
+    # Resolve target numerical features
+    if numerical_features is not None:
+        target_num_cols = [c for c in numerical_features if c in common_cols]
+    else:
+        # Check if baseline matches standard Telco features
+        telco_num_set = set(NUMERICAL_FEATURES)
+        if telco_num_set.issubset(set(baseline_df.columns)):
+            target_num_cols = [c for c in common_cols if c in telco_num_set]
+        else:
+            # Dynamic detection: numeric dtype
+            target_num_cols = []
+            for col in common_cols:
+                b_s = baseline_df[col]
+                p_s = production_df[col]
+                if pd.api.types.is_numeric_dtype(b_s) or pd.api.types.is_numeric_dtype(p_s):
+                    if not (pd.api.types.is_bool_dtype(b_s) or pd.api.types.is_bool_dtype(p_s)):
+                        target_num_cols.append(col)
+
+    # Resolve target categorical features
+    if categorical_features is not None:
+        target_cat_cols = [c for c in categorical_features if c in common_cols]
+    else:
+        telco_cat_set = set(CATEGORICAL_FEATURES)
+        if telco_cat_set.issubset(set(baseline_df.columns)):
+            target_cat_cols = [c for c in common_cols if c in telco_cat_set]
+        else:
+            # All common columns not classified as numerical are categorical
+            target_cat_cols = [c for c in common_cols if c not in target_num_cols]
+
+    # Numerical feature tests (5 statistical algorithms)
+    for col in target_num_cols:
         b = pd.to_numeric(baseline_df[col], errors="coerce")
         p = pd.to_numeric(production_df[col], errors="coerce")
 
@@ -547,10 +586,8 @@ def analyze_feature_drift(
             "variance_change": variance_change_test(b, p),
         }
 
-    # Categorical feature tests
-    for col in CATEGORICAL_FEATURES:
-        if col not in baseline_df.columns or col not in production_df.columns:
-            continue
+    # Categorical feature tests (3 statistical algorithms)
+    for col in target_cat_cols:
         b = baseline_df[col].astype(str)
         p = production_df[col].astype(str)
 
@@ -560,12 +597,8 @@ def analyze_feature_drift(
             "new_categories": new_category_detection(b, p),
         }
 
-    # Missingness comparison across all features
-    for col in baseline_df.columns:
-        if col in (ID_COLUMN, TARGET_COLUMN):
-            continue
-        if col not in production_df.columns:
-            continue
+    # Missingness comparison across all common features
+    for col in common_cols:
         b_miss = float(baseline_df[col].isna().mean() * 100.0)
         p_miss = float(production_df[col].isna().mean() * 100.0)
         diff = p_miss - b_miss

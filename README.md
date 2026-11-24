@@ -10,13 +10,14 @@
 
 <br/>
 
-[![Python Version](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![Python Version](https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-3776AB?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.3+-F7931E?style=flat-square&logo=scikitlearn&logoColor=white)](https://scikit-learn.org/)
 [![XGBoost](https://img.shields.io/badge/XGBoost-2.0+-green?style=flat-square&logo=xgboost&logoColor=white)](https://xgboost.readthedocs.io/)
 [![SciPy](https://img.shields.io/badge/SciPy-1.11+-8CAAE6?style=flat-square&logo=scipy&logoColor=white)](https://scipy.org/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.28+-FF4B4B?style=flat-square&logo=streamlit&logoColor=white)](https://streamlit.io/)
+[![HTML5/CSS3/JS](https://img.shields.io/badge/Frontend-HTML5%20%7C%20CSS3%20%7C%20ES6%20SPA-E34F26?style=flat-square&logo=html5&logoColor=white)](public/)
 [![Docker Ready](https://img.shields.io/badge/Docker-Multi--stage-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
-[![CI / CD Tests](https://img.shields.io/badge/Tests-181%20Passing%20(100%25)-brightgreen?style=flat-square&logo=pytest&logoColor=white)](tests/)
+[![CI / CD Tests](https://img.shields.io/badge/Tests-171%20Passing%20(100%25)-brightgreen?style=flat-square&logo=pytest&logoColor=white)](tests/)
 [![Security Audit](https://img.shields.io/badge/Security-Hardened%20OWASP-blueviolet?style=flat-square&logo=shield&logoColor=white)](src/data_validator.py)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 
@@ -34,7 +35,7 @@
 
 | Resource | Direct Link | Description |
 | :--- | :--- | :--- |
-| 🚀 **Live Production Application** | [**dddsystem.vercel.app**](https://dddsystem.vercel.app) | Interactive cloud-deployed Streamlit SaaS dashboard |
+| 🚀 **Live Production Application** | [**dddsystem.vercel.app**](https://dddsystem.vercel.app) | Enterprise ML drift monitoring SPA deployed on Vercel |
 | 🌐 **Author Portfolio** | [**pawankumar.info**](https://pawankumar.info/) | Technical portfolio, research papers, and case studies |
 | 💼 **LinkedIn Profile** | [**linkedin.com/in/pawankumar101**](https://www.linkedin.com/in/pawankumar101/) | Professional background, recommendations, and updates |
 | 💻 **LeetCode Profile** | [**leetcode.com/u/pk3253702**](https://leetcode.com/u/pk3253702/) | 500+ solved algorithmic challenges and data structures |
@@ -42,8 +43,66 @@
 
 ---
 
+## 📸 Platform Visual Showcase & Telemetry Walkthrough
+
+The **DataDrift ML Observability Platform (v2.0)** features a high-performance Single-Page Application (SPA) architecture with dual-theme intelligence (**Professional Dark & Crisp Light modes**), real-time interactive Plotly charts with **smooth horizontal scrolling**, proactive alert dispatching, and **arbitrary dataset schema tolerance**.
+
+| Platform View | Telemetry Scope | Real-Time UI Preview |
+| :--- | :--- | :--- |
+| 📊 **Dashboard Overview** | Executive Risk Gauge, KPI telemetry, horizontally scrollable PSI feature divergence bars, and complete breakdown summary table. | [View Details](#1--dashboard-overview) |
+| 🔬 **Feature Drift Analysis** | In-depth empirical distribution drill-down, probability density overlays (Baseline vs. Production), and 4 distinct hypothesis tests per feature. | [View Details](#2--feature-drift-analysis) |
+| 📈 **Model Health & Reliability** | Classification performance metrics comparison (Accuracy, Precision, Recall, F1, ROC-AUC) and confusion matrix telemetry. | [View Details](#3--model-health--reliability) |
+| 🚨 **Alert Intelligence Center** | Real-time automated alerts, critical/warning/info severity triage, root-cause diagnostics, and actionable remediation guidance. | [View Details](#4--alert-intelligence-center) |
+| 🚀 **Upload & Ingest Batches** | Drag-and-drop batch ingestion supporting arbitrary CSV schemas, auto-detection of numerical/categorical features, and instant drift auditing. | [View Details](#5--upload--ingest-batches) |
+| ⚙️ **Settings & Calibration** | Runtime statistical sensitivity sliders ($\alpha$-significance, PSI thresholds, risk triggers) and system author specs. | [View Details](#6--settings--calibration) |
+
+<br/>
+
+### 1. 📊 Dashboard Overview
+Real-time executive monitoring center showing overall dataset risk score, active batch metadata, KPI summary cards, horizontally scrollable PSI divergence vertical bars with threshold reference lines (0.10 Moderate, 0.25 Severe), and detailed feature drift status tables.
+
+![Dashboard Overview](images/screenshots/01_dashboard_overview.png)
+
+---
+
+### 2. 🔬 Feature Drift Analysis
+Interactive feature-level statistical inspection module. Select any feature to view overlaid probability density histograms comparing training baseline distributions against current production batches, complete with summary statistics and 4 independent statistical hypothesis test verdicts.
+
+![Feature Drift Analysis](images/screenshots/02_drift_analysis.png)
+
+---
+
+### 3. 📈 Model Health & Reliability
+Supervised performance telemetry monitoring model degradation. Features side-by-side grouped bar charts comparing Baseline vs. Production metrics (Accuracy, Precision, Recall, F1 Score, ROC-AUC) and real-time confusion matrix heatmaps.
+
+![Model Health & Reliability](images/screenshots/03_model_health.png)
+
+---
+
+### 4. 🚨 Alert Intelligence Center
+Automated alert monitoring hub with real-time severity classification (Critical, Warning, Informational), interactive severity filtering, timestamped logs, and actionable engineering remediation steps.
+
+![Alert Intelligence Center](images/screenshots/04_alert_center.png)
+
+---
+
+### 5. 🚀 Upload & Ingest Batches
+Enterprise batch ingestion portal. Supports pre-configured production scenario batches (1 to 5) as well as arbitrary multi-schema CSV uploads with automatic column classification (numerical vs. categorical) and immediate 8-test statistical auditing.
+
+![Upload & Ingest Batches](images/screenshots/05_upload_ingest.png)
+
+---
+
+### 6. ⚙️ Settings & Calibration
+Dynamic runtime sensitivity calibration panel. Modify significance levels ($\alpha = 0.05$), PSI boundary cutoffs, and risk trigger ratios on the fly without restarting services, complete with system specs and author attribution.
+
+![Settings & Calibration](images/screenshots/06_settings_calibration.png)
+
+---
+
 ## 📑 Table of Contents
 
+- [Platform Visual Showcase & Telemetry](#-platform-visual-showcase--telemetry-walkthrough)
 - [Executive Summary & Problem Statement](#-executive-summary--the-data-drift-problem)
 - [System Architecture & Data Flow](#️-system-architecture)
 - [Mathematical & Statistical Drift Engine (All 8 Tests)](#-mathematical--statistical-drift-engine)
@@ -65,7 +124,7 @@
   - [Production Inference Degradation Tracking](#production-inference-degradation-tracking)
 - [Data Validation & Quality Assurance Layer](#-data-validation--quality-assurance-layer)
 - [Simulated Production Scenarios](#-simulated-production-scenarios)
-- [Streamlit SaaS Dashboard Architecture](#-streamlit-saas-dashboard-architecture)
+- [Enterprise SaaS Dashboard Architecture](#-enterprise-saas-dashboard-architecture)
 - [Security, Governance & Audit Logging](#-security-governance--audit-logging)
 - [Deployment & DevOps Engineering](#-deployment--devops-engineering)
   - [Local Development Setup](#1-local-native-setup)
@@ -391,9 +450,9 @@ To demonstrate real-world resilience, the system includes 5 pre-generated produc
 
 ---
 
-## 📊 Streamlit SaaS Dashboard Architecture
+## 📊 Enterprise Web SaaS Dashboard Architecture
 
-The production dashboard ([**dddsystem.vercel.app**](https://dddsystem.vercel.app)) is engineered with a glassmorphism design system, dark-mode styling, responsive layouts, and interactive Plotly visualizations.
+The production dashboard ([**dddsystem.vercel.app**](https://dddsystem.vercel.app)) is engineered as a modern Single Page Application (HTML5, CSS3, ES6 JavaScript, Plotly.js) backed by high-performance FastAPI REST endpoints. It features both Obsidian Dark (`[data-theme="dark"]`) and SaaS Light (`[data-theme="light"]`) themes, real-time KPI telemetry, and interactive visualizations.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
@@ -490,9 +549,11 @@ pip install -r requirements.txt
 # Train baseline models & generate benchmark batches
 python -m src.train
 
-# Launch interactive dashboard
-streamlit run dashboard/app.py
+# Launch high-performance ASGI application server & interactive SPA
+python run.py
 ```
+
+The application will be live at `http://localhost:8000` with interactive API documentation at `http://localhost:8000/docs`.
 
 ---
 
@@ -589,6 +650,19 @@ Datadrift_detection/
 │       ├── alerts.py              # Filterable alert feed & audit log
 │       ├── upload.py              # Custom CSV upload & real-time drift execution
 │       └── settings.py            # Dynamic statistical threshold configuration
+├── api/
+│   ├── __init__.py                # API package marker
+│   ├── app.py                     # High-performance FastAPI backend, CORS, security, REST routers
+│   └── index.py                   # Vercel serverless function entry handler
+├── images/
+│   ├── logo.png                   # System branding logo
+│   └── screenshots/               # High-resolution platform telemetry showcase images
+│       ├── 01_dashboard_overview.png
+│       ├── 02_drift_analysis.png
+│       ├── 03_model_health.png
+│       ├── 04_alert_center.png
+│       ├── 05_upload_ingest.png
+│       └── 06_settings_calibration.png
 ├── logs/
 │   ├── alerts.json                # Persistent JSON alert history
 │   └── drift_system.log           # Rotating file log (5 MB max, 3 backups)
@@ -597,12 +671,18 @@ Datadrift_detection/
 │   ├── best_model.joblib          # Pickled best estimator (Logistic Regression)
 │   ├── preprocessor.joblib        # Fitted DataPreprocessor with baseline medians/modes
 │   └── training_summary.json      # Full 4-model cross-validation training audit
+├── public/
+│   ├── index.html                 # Production SPA landing and view containers
+│   ├── css/
+│   │   └── style.css              # Dark/light theme styles, layout, and scrollbar rules
+│   └── js/
+│       └── app.js                 # SPA client state, Plotly renderers, horizontal scrolling
 ├── reports/                       # Generated timestamped drift reports & CSV summaries
 ├── src/
 │   ├── __init__.py                # Source package marker
 │   ├── alert.py                   # Alert generator, threshold dispatcher, & JSON store
-│   ├── data_loader.py             # Baseline loader & synthetic batch generator
-│   ├── data_validator.py          # Schema validation, quality audits, & sanitization
+│   ├── data_loader.py             # Baseline loader & multi-schema batch loader
+│   ├── data_validator.py          # Dynamic schema inspection, quality audits, & sanitization
 │   ├── drift_detection.py         # 8 statistical tests & dataset risk scoring engine
 │   ├── metrics.py                 # Classification evaluation & health comparison
 │   ├── predict.py                 # Production batch inference service
@@ -613,13 +693,12 @@ Datadrift_detection/
 │   └── config/
 │       ├── __init__.py            # Config package marker
 │       └── settings.py            # Global thresholds, paths, & hyperparameter settings
-├── public/
-│   └── index.html                 # Production static landing & redirect fallback
 ├── tests/
 │   ├── __init__.py                # Tests package marker
 │   ├── conftest.py                # Pytest fixtures & path resolvers
 │   ├── test_alert.py              # 10 tests: alert dispatch, recovery, JSON persistence
-│   ├── test_dashboard.py          # 25 tests: Streamlit AppTest simulation & UI components
+│   ├── test_api.py                # 15 tests: FastAPI REST endpoints, analysis, settings, uploads
+│   ├── test_batches_e2e.py        # 10 tests: end-to-end production batches 01–05 lifecycle
 │   ├── test_data_loader.py        # 8 tests: loading, schema, batch generation
 │   ├── test_data_validator.py     # 20 tests: schema enforcement, quality, security
 │   ├── test_drift_detection.py    # 25 tests: KS, PSI, JSD, Chi2, thresholds
@@ -632,10 +711,10 @@ Datadrift_detection/
 │   ├── test_security.py           # 9 tests: Docker non-root, headers, input sanitization
 │   ├── test_train.py              # 5 tests: 5-fold CV, model selection, artifacts
 │   └── test_utils.py              # 10 tests: rotating logger, date utilities, JSON I/O
+├── run.py                         # Local server runner (ASGI / Uvicorn on port 8000)
 ├── .dockerignore                  # Docker build context exclusions
 ├── .gitignore                     # Git exclusion rules
 ├── Dockerfile                     # Multi-stage hardened production container definition
-├── netlify.toml                   # Edge headers & canonical redirect configuration
 ├── requirements.txt               # Pinned production dependencies
 ├── requirements-dev.txt           # Developer & test dependencies
 ├── vercel.json                    # Vercel deployment & OWASP security headers
@@ -646,7 +725,7 @@ Datadrift_detection/
 
 ## 🧪 Testing & QA Verification Suite
 
-The repository contains an enterprise test suite with **181 unit, integration, and security tests** across 14 test suites validating 100% regression-free performance, numerical edge cases, and UI interactions:
+The repository contains an enterprise test suite with **171 unit, integration, API, and security tests** across 14 test suites validating 100% regression-free performance, numerical edge cases, and REST API endpoints:
 
 ```bash
 # Execute entire test suite with zero warnings
@@ -660,6 +739,8 @@ python -m pytest tests/ --cov=src --cov-report=term-missing
 
 | Test Module | Test Count | Scope of Verification | Status |
 | :--- | :---: | :--- | :---: |
+| `test_api.py` | 15 | FastAPI REST endpoints, batch drift analysis, settings, uploads, static UI | ✅ 100% Pass |
+| `test_batches_e2e.py` | 10 | End-to-end production batches 01–05 lifecycle & characteristics | ✅ 100% Pass |
 | `test_data_loader.py` | 8 | Baseline data ingestion, schema validation, batch loading | ✅ 100% Pass |
 | `test_data_validator.py` | 20 | Schema conformity, empty files, size caps, infinite values, path traversal | ✅ 100% Pass |
 | `test_drift_detection.py` | 25 | KS test, PSI, JSD, Chi-Square, mean shift, sample-size guards, zero-variance | ✅ 100% Pass |
@@ -672,9 +753,8 @@ python -m pytest tests/ --cov=src --cov-report=term-missing
 | `test_report.py` | 5 | Multi-format reporting, JSON drift reports, CSV summary generation | ✅ 100% Pass |
 | `test_utils.py` | 10 | Rotating log file handlers, timestamp formatters, JSON helpers | ✅ 100% Pass |
 | `test_integration.py` | 8 | End-to-end pipeline flow across all 5 production batch scenarios | ✅ 100% Pass |
-| `test_dashboard.py` | 25 | Streamlit AppTest simulation across all 6 pages, component rendering | ✅ 100% Pass |
 | `test_security.py` | 9 | Docker non-root UID 10001, security headers, input sanitization | ✅ 100% Pass |
-| **Total Test Suite** | **181 Tests** | **Exhaustive coverage of every subsystem, edge case, and UI page** | **100% PASS** |
+| **Total Test Suite** | **171 Tests** | **Exhaustive coverage of every subsystem, edge case, and REST endpoint** | **100% PASS** |
 
 ---
 
@@ -731,7 +811,8 @@ Senior Software Developer & Machine Learning Systems Specialist
 ### Core Technologies
 - **Statistical Foundations**: SciPy, NumPy, pandas
 - **Machine Learning**: scikit-learn, XGBoost, Joblib
-- **Frontend & Visualization**: Streamlit, Plotly, Seaborn, Matplotlib
+- **Web Backend & REST API**: FastAPI, Uvicorn, ASGI
+- **Frontend & Visualization**: Modern HTML5 / CSS3 / ES6 SPA, Plotly.js, Seaborn, Matplotlib
 - **Containerization & CI/CD**: Docker, GitHub Actions, Vercel
 
 ---

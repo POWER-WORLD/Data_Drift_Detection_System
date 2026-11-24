@@ -31,18 +31,18 @@ jobs:
 
       - name: Check Code Formatting (Black)
         run: |
-          black --check --diff src dashboard tests
+          black --check --diff src api tests
 
       - name: Check Import Order (isort)
         run: |
-          isort --check-only --diff src dashboard tests
+          isort --check-only --diff src api tests
 
       - name: Lint Codebase (flake8)
         run: |
           # Stop the build if there are Python syntax errors or undefined names
-          flake8 src dashboard tests --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 src api tests --count --select=E9,F63,F7,F82 --show-source --statistics
           # Warning-level linting for enterprise standards
-          flake8 src dashboard tests --count --max-complexity=15 --max-line-length=120 --statistics
+          flake8 src api tests --count --max-complexity=15 --max-line-length=120 --statistics
 
   security-scan:
     name: Cybersecurity & Vulnerability Audit
@@ -64,8 +64,8 @@ jobs:
 
       - name: Run Bandit AST Security Scan
         run: |
-          # Audit src and dashboard for OWASP Top 10 vulnerabilities
-          bandit -r src dashboard -ll -ii
+          # Audit src and api for OWASP Top 10 vulnerabilities
+          bandit -r src api -ll -ii
 
       - name: Audit Dependencies for Known CVEs (pip-audit)
         run: |

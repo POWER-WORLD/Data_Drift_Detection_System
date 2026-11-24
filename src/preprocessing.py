@@ -1,201 +1,308 @@
 """
 Preprocessing module for the Data Drift Detection System.
-Handles data cleaning, encoding, scaling, and feature engineering.
-Stores baseline statistics (medians) for consistent production transforms.
+
+Handles data cleaning, numeric imputation, categorical mode imputation,
+label encoding, standard scaling, and artifact serialization.
+Maintains natural feature ordering consistent with trained model estimators.
+Follows PEP 8 and Global Naming Standardization.
 """
 
-import pandas as pd
-import numpy as np
-import joblib
 from pathlib import Path
-from typing import Tuple, Optional
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import joblib
+import numpy as np
+import pandas as pd
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 
 from src.config.settings import (
-    TARGET_COLUMN, ID_COLUMN, NUMERICAL_FEATURES,
-    CATEGORICAL_FEATURES, MODELS_DIR
+    CATEGORICAL_FEATURES,
+    ID_COLUMN,
+    MODELS_DIR,
+    NUMERICAL_FEATURES,
+    TARGET_COLUMN,
 )
 from src.utils import setup_logger
 
 logger = setup_logger(__name__)
 
+# Canonical baseline feature sequence matching models/best_model.joblib
+CANONICAL_FEATURE_ORDER: List[str] = [
+    "gender",
+    "SeniorCitizen",
+    "Partner",
+    "Dependents",
+    "tenure",
+    "PhoneService",
+    "MultipleLines",
+    "InternetService",
+    "OnlineSecurity",
+    "OnlineBackup",
+    "DeviceProtection",
+    "TechSupport",
+    "StreamingTV",
+    "StreamingMovies",
+    "Contract",
+    "PaperlessBilling",
+    "PaymentMethod",
+    "MonthlyCharges",
+    "TotalCharges",
+]
+
 
 class DataPreprocessor:
     """
-    End-to-end data preprocessor that handles:
-    - Dropping ID columns
-    - Replacing infinities with NaN
-    - Encoding the target variable
-    - Label-encoding categorical features
-    - Scaling numerical features
-    - Handling missing values (stores baseline medians for production use)
+    End-to-end data preprocessor designed for ML inference stability.
 
-    The preprocessor can be fitted on baseline data and then applied
-    consistently to production batches.
+    Responsibilities:
+    - ID column elimination
+    - Infinite float sanitization (replacement with NaN)
+    - Target label encoding
+    - Missing value imputation using fitted baseline statistics (median/mode)
+    - Robust label encoding with graceful fallback for unseen production categories
+    - Standard scaling for continuous numerical features
+    - Strict feature sequence preservation matching trained model estimators
     """
 
-    def __init__(self):
-        self.label_encoders: dict = {}
-        self.scaler = StandardScaler()
-        self.target_encoder = LabelEncoder()
+    def __init__(self) -> None:
+        self.label_encoders: Dict[str, LabelEncoder] = {}
+        self.scaler: StandardScaler = StandardScaler()
+        self.target_encoder: LabelEncoder = LabelEncoder()
         self.is_fitted: bool = False
-        self._numerical_features = NUMERICAL_FEATURES.copy()
-        self._categorical_features = CATEGORICAL_FEATURES.copy()
-        self._baseline_medians: dict = {}   # Stored for production imputation
-        self._baseline_modes: dict = {}
+        self._numerical_features: List[str] = list(NUMERICAL_FEATURES)
+        self._categorical_features: List[str] = list(CATEGORICAL_FEATURES)
+        self._baseline_medians: Dict[str, float] = {}
+        self._baseline_modes: Dict[str, str] = {}
+        self.feature_names_: List[str] = list(CANONICAL_FEATURE_ORDER)
 
     def fit_transform(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series]:
         """
-        Fit the preprocessor on baseline data and return transformed features + target.
+        Fit preprocessor parameters on baseline data and return transformed feature matrix and target.
 
         Args:
-            df: Raw baseline DataFrame.
+            df: Raw baseline training DataFrame.
 
         Returns:
-            Tuple of (X_processed, y_encoded).
+            Tuple of (X_processed DataFrame, y_encoded Series).
         """
-        logger.info("Fitting preprocessor on baseline data")
-        df = df.copy()
+        logger.info("Fitting data preprocessor on baseline dataset...")
+        processed_df = df.copy()
 
-        # Drop ID column
-        if ID_COLUMN in df.columns:
-            df = df.drop(columns=[ID_COLUMN])
+        # Capture feature order prior to column modifications
+        natural_features = [
+            c for c in processed_df.columns if c not in (ID_COLUMN, TARGET_COLUMN)
+        ]
+        if natural_features:
+            self.feature_names_ = natural_features
+        else:
+            self.feature_names_ = list(CANONICAL_FEATURE_ORDER)
 
-        # Handle TotalCharges conversion
-        if "TotalCharges" in df.columns:
-            df["TotalCharges"] = pd.to_numeric(df["TotalCharges"], errors="coerce")
+        # Remove primary key identifier if present
+        if ID_COLUMN in processed_df.columns:
+            processed_df = processed_df.drop(columns=[ID_COLUMN])
 
-        # Replace infinities with NaN
+        # Enforce numeric conversion for TotalCharges
+        if "TotalCharges" in processed_df.columns:
+            processed_df["TotalCharges"] = pd.to_numeric(
+                processed_df["TotalCharges"], errors="coerce"
+            )
+
+        # Replace infinities with NaN in numerical columns
         for col in self._numerical_features:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors="coerce")
-                df[col] = df[col].replace([np.inf, -np.inf], np.nan)
+            if col in processed_df.columns:
+                numeric_series = pd.to_numeric(processed_df[col], errors="coerce")
+                processed_df[col] = numeric_series.replace([np.inf, -np.inf], np.nan)
 
-        # Fill missing numerical values with median and store for production
+        # Compute and persist baseline medians for numerical imputation
         for col in self._numerical_features:
-            if col in df.columns:
-                median_val = df[col].median()
-                self._baseline_medians[col] = float(median_val) if pd.notna(median_val) else 0.0
-                if df[col].isna().any():
-                    df[col] = df[col].fillna(self._baseline_medians[col])
-                    logger.info(f"Filled {col} missing values with median={self._baseline_medians[col]:.2f}")
+            if col in processed_df.columns:
+                col_median = processed_df[col].median()
+                fill_val = float(col_median) if pd.notna(col_median) else 0.0
+                self._baseline_medians[col] = fill_val
+                if processed_df[col].isna().any():
+                    processed_df[col] = processed_df[col].fillna(fill_val)
+                    logger.info("Imputed %s missing values with median=%.2f", col, fill_val)
 
-        # Fill missing categorical values with mode and store
+        # Compute and persist baseline modes for categorical imputation
         for col in self._categorical_features:
-            if col in df.columns:
-                mode_vals = df[col].mode()
-                mode_val = mode_vals[0] if len(mode_vals) > 0 else "Unknown"
+            if col in processed_df.columns:
+                mode_series = processed_df[col].dropna().mode()
+                mode_val = str(mode_series.iloc[0]) if len(mode_series) > 0 else "Unknown"
                 self._baseline_modes[col] = mode_val
-                if df[col].isna().any():
-                    df[col] = df[col].fillna(mode_val)
-                    logger.info(f"Filled {col} missing values with mode={mode_val}")
+                if processed_df[col].isna().any():
+                    processed_df[col] = processed_df[col].fillna(mode_val)
+                    logger.info("Imputed %s missing values with mode=%s", col, mode_val)
 
-        # Encode target
-        y = self.target_encoder.fit_transform(df[TARGET_COLUMN])
-        df = df.drop(columns=[TARGET_COLUMN])
+        # Fit and encode target variable
+        if TARGET_COLUMN not in processed_df.columns:
+            raise KeyError(f"Mandatory target column '{TARGET_COLUMN}' missing from baseline data.")
 
-        # Encode categorical features
+        y_encoded = self.target_encoder.fit_transform(processed_df[TARGET_COLUMN].astype(str))
+        processed_df = processed_df.drop(columns=[TARGET_COLUMN])
+
+        # Fit and encode categorical features
         for col in self._categorical_features:
-            if col in df.columns:
-                le = LabelEncoder()
-                df[col] = le.fit_transform(df[col].astype(str))
-                self.label_encoders[col] = le
+            if col in processed_df.columns:
+                encoder = LabelEncoder()
+                processed_df[col] = encoder.fit_transform(processed_df[col].astype(str))
+                self.label_encoders[col] = encoder
 
-        # Scale numerical features
-        df[self._numerical_features] = self.scaler.fit_transform(df[self._numerical_features])
+        # Fit and transform numerical standard scaler
+        scaled_values = self.scaler.fit_transform(processed_df[self._numerical_features])
+        processed_df[self._numerical_features] = scaled_values
+
+        # Ensure consistent column ordering matching self.feature_names_
+        processed_df = processed_df[self.feature_names_]
 
         self.is_fitted = True
-        logger.info(f"Preprocessing complete: {df.shape[0]} rows, {df.shape[1]} features")
-
-        return df, pd.Series(y, name=TARGET_COLUMN)
+        logger.info(
+            "Preprocessor fit complete: %d samples, %d features",
+            processed_df.shape[0],
+            processed_df.shape[1],
+        )
+        return processed_df, pd.Series(y_encoded, name=TARGET_COLUMN)
 
     def transform(self, df: pd.DataFrame) -> Tuple[pd.DataFrame, Optional[pd.Series]]:
         """
-        Transform new production data using the fitted preprocessor.
-        Uses baseline medians for imputation, handles unseen categories gracefully.
+        Transform production inference data using fitted preprocessor artifacts.
+
+        Gracefully handles unseen categories, missing features, and missing values.
 
         Args:
             df: Raw production DataFrame.
 
         Returns:
-            Tuple of (X_processed, y_encoded or None).
+            Tuple of (X_processed DataFrame, y_encoded Series or None).
+
+        Raises:
+            RuntimeError: If transform is called prior to fit_transform().
         """
         if not self.is_fitted:
-            raise RuntimeError("Preprocessor not fitted. Call fit_transform() first.")
+            raise RuntimeError("Preprocessor has not been fitted. Call fit_transform() first.")
 
-        logger.info("Transforming production data")
-        df = df.copy()
+        logger.info("Transforming production batch features...")
+        processed_df = df.copy()
 
-        # Drop ID column
-        if ID_COLUMN in df.columns:
-            df = df.drop(columns=[ID_COLUMN])
+        # Remove ID column if present
+        if ID_COLUMN in processed_df.columns:
+            processed_df = processed_df.drop(columns=[ID_COLUMN])
 
-        # Handle TotalCharges conversion
-        if "TotalCharges" in df.columns:
-            df["TotalCharges"] = pd.to_numeric(df["TotalCharges"], errors="coerce")
-
-        # Replace infinities with NaN
-        for col in self._numerical_features:
-            if col in df.columns:
-                df[col] = pd.to_numeric(df[col], errors="coerce")
-                df[col] = df[col].replace([np.inf, -np.inf], np.nan)
-
-        # Fill missing numerical values with baseline median (not 0)
-        missing_counts = {}
-        for col in self._numerical_features:
-            if col in df.columns:
-                n_missing = int(df[col].isna().sum())
-                if n_missing > 0:
-                    missing_counts[col] = n_missing
-                    fill_val = self._baseline_medians.get(col, 0.0)
-                    df[col] = df[col].fillna(fill_val)
-
-        if missing_counts:
-            logger.warning(f"Missing values in production data (filled with baseline medians): {missing_counts}")
-
-        # Fill missing categorical values with baseline mode
-        for col in self._categorical_features:
-            if col in df.columns and df[col].isna().any():
-                fill_val = self._baseline_modes.get(col, "Unknown")
-                df[col] = df[col].fillna(fill_val)
-
-        # Encode target if present
-        y = None
-        if TARGET_COLUMN in df.columns:
-            known_classes = set(self.target_encoder.classes_)
-            df[TARGET_COLUMN] = df[TARGET_COLUMN].apply(
-                lambda x: x if x in known_classes else self.target_encoder.classes_[0]
+        # Convert TotalCharges if present
+        if "TotalCharges" in processed_df.columns:
+            processed_df["TotalCharges"] = pd.to_numeric(
+                processed_df["TotalCharges"], errors="coerce"
             )
-            y = pd.Series(self.target_encoder.transform(df[TARGET_COLUMN]), name=TARGET_COLUMN)
-            df = df.drop(columns=[TARGET_COLUMN])
 
-        # Encode categorical features (handle unseen categories)
+        # Ensure all numerical features exist and infinities are replaced with NaN
+        missing_imputations: Dict[str, int] = {}
+        for col in self._numerical_features:
+            if col not in processed_df.columns:
+                fill_val = self._baseline_medians.get(col, 0.0)
+                processed_df[col] = fill_val
+                missing_imputations[col] = len(processed_df)
+            else:
+                numeric_series = pd.to_numeric(processed_df[col], errors="coerce")
+                sanitized_series = numeric_series.replace([np.inf, -np.inf], np.nan)
+                num_missing = int(sanitized_series.isna().sum())
+                if num_missing > 0:
+                    fill_val = self._baseline_medians.get(col, 0.0)
+                    sanitized_series = sanitized_series.fillna(fill_val)
+                    missing_imputations[col] = num_missing
+                processed_df[col] = sanitized_series
+
+        if missing_imputations:
+            logger.warning(
+                "Missing numerical values imputed with baseline medians: %s",
+                missing_imputations,
+            )
+
+        # Ensure all categorical features exist and missing values are filled with mode
         for col in self._categorical_features:
-            if col in df.columns and col in self.label_encoders:
-                le = self.label_encoders[col]
-                known_classes = set(le.classes_)
-                df[col] = df[col].astype(str).apply(
-                    lambda x, kc=known_classes, le_cls=le.classes_: x if x in kc else le_cls[0]
+            fallback_mode = self._baseline_modes.get(col, "Unknown")
+            if col not in processed_df.columns:
+                processed_df[col] = fallback_mode
+            else:
+                if processed_df[col].isna().any():
+                    processed_df[col] = processed_df[col].fillna(fallback_mode)
+
+        # Encode target if present in production batch
+        y_encoded: Optional[pd.Series] = None
+        if TARGET_COLUMN in processed_df.columns:
+            target_series = processed_df[TARGET_COLUMN].dropna().astype(str)
+            if len(target_series) > 0:
+                known_classes = set(self.target_encoder.classes_)
+                safe_target = processed_df[TARGET_COLUMN].astype(str).apply(
+                    lambda val, kc=known_classes, default_cls=self.target_encoder.classes_[0]: (
+                        val if val in kc else default_cls
+                    )
                 )
-                df[col] = le.transform(df[col])
+                y_encoded = pd.Series(
+                    self.target_encoder.transform(safe_target),
+                    name=TARGET_COLUMN,
+                )
+            processed_df = processed_df.drop(columns=[TARGET_COLUMN])
+
+        # Transform categorical features with fallback for unseen classes
+        for col in self._categorical_features:
+            if col in self.label_encoders:
+                encoder = self.label_encoders[col]
+                known_classes = set(encoder.classes_)
+                default_class = encoder.classes_[0]
+
+                safe_cat_series = processed_df[col].astype(str).apply(
+                    lambda val, kc=known_classes, d_cls=default_class: val if val in kc else d_cls
+                )
+                processed_df[col] = encoder.transform(safe_cat_series)
 
         # Scale numerical features
-        df[self._numerical_features] = self.scaler.transform(df[self._numerical_features])
+        processed_df[self._numerical_features] = self.scaler.transform(
+            processed_df[self._numerical_features]
+        )
 
-        logger.info(f"Production data transformed: {df.shape[0]} rows, {df.shape[1]} features")
-        return df, y
+        # Align column order exactly with canonical feature order / self.feature_names_
+        feature_order = getattr(self, "feature_names_", None) or CANONICAL_FEATURE_ORDER
+        processed_df = processed_df[feature_order]
 
-    def save(self, filepath: Optional[Path] = None) -> None:
-        """Save the fitted preprocessor to disk."""
-        filepath = filepath or (MODELS_DIR / "preprocessor.joblib")
-        filepath.parent.mkdir(parents=True, exist_ok=True)
-        joblib.dump(self, filepath)
-        logger.info(f"Preprocessor saved to {filepath}")
+        logger.info(
+            "Production batch transformed successfully: %d samples, %d features",
+            processed_df.shape[0],
+            processed_df.shape[1],
+        )
+        return processed_df, y_encoded
+
+    def save(self, filepath: Optional[Union[str, Path]] = None) -> None:
+        """
+        Serialize and persist the fitted preprocessor instance to disk.
+
+        Args:
+            filepath: Destination file path. Defaults to MODELS_DIR / 'preprocessor.joblib'.
+        """
+        target_path = Path(filepath) if filepath is not None else (MODELS_DIR / "preprocessor.joblib")
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        joblib.dump(self, target_path)
+        logger.info("Preprocessor artifact successfully saved to %s", target_path)
 
     @classmethod
-    def load(cls, filepath: Optional[Path] = None) -> "DataPreprocessor":
-        """Load a fitted preprocessor from disk."""
-        filepath = filepath or (MODELS_DIR / "preprocessor.joblib")
-        preprocessor = joblib.load(filepath)
-        logger.info(f"Preprocessor loaded from {filepath}")
-        return preprocessor
+    def load(cls, filepath: Optional[Union[str, Path]] = None) -> "DataPreprocessor":
+        """
+        Load and deserialize a fitted preprocessor instance from disk.
+
+        Args:
+            filepath: Path to the serialized preprocessor artifact.
+
+        Returns:
+            Fitted DataPreprocessor instance.
+
+        Raises:
+            FileNotFoundError: If the specified artifact path does not exist.
+        """
+        target_path = Path(filepath) if filepath is not None else (MODELS_DIR / "preprocessor.joblib")
+        if not target_path.exists():
+            raise FileNotFoundError(f"Preprocessor artifact not found at: {target_path}")
+
+        instance: "DataPreprocessor" = joblib.load(target_path)
+        # Ensure feature_names_ exists on legacy instances
+        if not hasattr(instance, "feature_names_") or not instance.feature_names_:
+            instance.feature_names_ = list(CANONICAL_FEATURE_ORDER)
+        logger.info("Loaded preprocessor artifact from %s", target_path)
+        return instance

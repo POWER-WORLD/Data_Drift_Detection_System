@@ -1,0 +1,74 @@
+# ==============================================================================
+# Docker Build Context Exclusions - Data Drift Detection System
+# ==============================================================================
+
+# Version Control
+.git/
+.gitignore
+.gitattributes
+
+# CI/CD & Cloud Configurations
+.github/
+.vercel/
+.netlify/
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Python Cache & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyd
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+tests/
+
+# Linting & Type Checking
+.mypy_cache/
+.ruff_cache/
+
+# Development Tools & Notebooks
+notebooks/
+.ipynb_checkpoints/
+*.ipynb
+
+# IDE Configurations
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Secrets & Environment Variables
+.env
+.env.*
+*.env
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+.streamlit/secrets.toml
+
+# Documentation, Reports & Static Media
+*.md
+*.pdf
+images/
+reports/
+logs/
+Telco-Customer-Churn.csv
+
+# OS Artifacts
+.DS_Store
+Thumbs.db
+desktop.ini

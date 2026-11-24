@@ -1,141 +1,146 @@
 """
 Data loading module for the Data Drift Detection System.
-Handles loading baseline data, production batches, and generating simulated drift scenarios.
-All loading functions include validation and error handling.
+
+Handles loading baseline datasets, reading production batches, and generating
+simulated data drift scenarios (no drift, mild drift, severe drift, missingness,
+and categorical expansion). Includes validation and sanitization on all data ingested.
+Follows PEP 8 and Global Naming Standardization.
 """
 
-import pandas as pd
-import numpy as np
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional, Union
+
+import numpy as np
+import pandas as pd
 
 from src.config.settings import (
-    BASELINE_FILE, PRODUCTION_DIR, TARGET_COLUMN, ID_COLUMN,
-    NUMERICAL_FEATURES, CATEGORICAL_FEATURES
+    BASELINE_FILE,
+    CATEGORICAL_FEATURES,
+    ID_COLUMN,
+    NUMERICAL_FEATURES,
+    PRODUCTION_DIR,
+    TARGET_COLUMN,
 )
-from src.data_validator import validate_file, validate_schema, sanitize_dataframe
+from src.data_validator import sanitize_dataframe, validate_file, validate_schema
 from src.utils import setup_logger
 
 logger = setup_logger(__name__)
 
 
-def load_baseline_data(filepath: Optional[Path] = None) -> pd.DataFrame:
+def load_baseline_data(filepath: Optional[Union[str, Path]] = None) -> pd.DataFrame:
     """
-    Load the baseline (training) dataset with validation.
+    Load the baseline training dataset with schema validation and sanitization.
 
     Args:
-        filepath: Path to CSV file. Defaults to BASELINE_FILE from settings.
+        filepath: Optional path to the CSV file. Defaults to BASELINE_FILE.
 
     Returns:
-        Validated and cleaned DataFrame.
+        Validated and sanitized baseline DataFrame.
 
     Raises:
-        DataValidationError: If the file fails validation.
-        FileNotFoundError: If the file does not exist.
+        DataValidationError: If the file fails integrity or schema checks.
+        ValueError: If the file cannot be parsed or is empty.
     """
-    filepath = filepath or BASELINE_FILE
-    logger.info(f"Loading baseline data from {filepath}")
+    target_path = Path(filepath) if filepath is not None else BASELINE_FILE
+    logger.info("Loading baseline data from %s", target_path)
 
-    # Validate file
-    validate_file(filepath)
+    # Validate file existence and constraints
+    validate_file(target_path)
 
     try:
-        df = pd.read_csv(filepath)
+        df = pd.read_csv(target_path)
     except pd.errors.EmptyDataError:
-        raise ValueError(f"Baseline file is empty: {filepath}")
-    except pd.errors.ParserError as e:
-        raise ValueError(f"Failed to parse baseline CSV: {e}")
+        raise ValueError(f"Baseline file is empty: {target_path}")
+    except pd.errors.ParserError as exc:
+        raise ValueError(f"Failed to parse baseline CSV: {exc}")
 
-    logger.info(f"Loaded {len(df)} rows, {len(df.columns)} columns")
+    logger.info("Loaded baseline data with %d rows and %d columns", len(df), len(df.columns))
 
-    # Validate schema
-    warnings = validate_schema(df, require_target=True)
-    for w in warnings:
-        logger.warning(w)
+    # Validate schema (target column is mandatory in baseline)
+    schema_warnings = validate_schema(df, require_target=True)
+    for warning_msg in schema_warnings:
+        logger.warning(warning_msg)
 
-    # Clean TotalCharges: convert to numeric (has some blank strings)
-    df["TotalCharges"] = pd.to_numeric(df["TotalCharges"], errors="coerce")
+    # Clean and coerce TotalCharges (frequently contains blank string spaces in Telco data)
+    if "TotalCharges" in df.columns:
+        df["TotalCharges"] = pd.to_numeric(df["TotalCharges"], errors="coerce")
+        if df["TotalCharges"].isna().any():
+            median_val = df["TotalCharges"].median()
+            fill_val = float(median_val) if pd.notna(median_val) else 0.0
+            df["TotalCharges"] = df["TotalCharges"].fillna(fill_val)
+            logger.info("Filled missing TotalCharges with baseline median=%.2f", fill_val)
 
-    # Fill missing TotalCharges with median
-    if df["TotalCharges"].isna().any():
-        median_val = df["TotalCharges"].median()
-        df["TotalCharges"] = df["TotalCharges"].fillna(median_val)
-        logger.info(f"Filled missing TotalCharges with median={median_val:.2f}")
-
-    # Sanitize (replace inf, drop all-NaN rows)
-    df = sanitize_dataframe(df)
-
-    return df
+    # Sanitize infinities and empty rows
+    sanitized_df = sanitize_dataframe(df)
+    return sanitized_df
 
 
-def load_production_batch(filepath: Path) -> pd.DataFrame:
+def load_production_batch(filepath: Union[str, Path]) -> pd.DataFrame:
     """
-    Load a production data batch with validation.
+    Load a production data batch with schema validation and sanitization.
 
     Args:
-        filepath: Path to the production batch CSV file.
+        filepath: Path to the production CSV batch file.
 
     Returns:
-        Validated DataFrame.
+        Validated production DataFrame.
 
     Raises:
-        DataValidationError: If the file fails validation.
+        DataValidationError: If the file fails integrity or schema checks.
+        ValueError: If the file is empty or cannot be parsed.
     """
-    logger.info(f"Loading production batch from {filepath}")
+    target_path = Path(filepath)
+    logger.info("Loading production batch from %s", target_path)
 
-    # Validate file
-    validate_file(filepath)
+    validate_file(target_path)
 
     try:
-        df = pd.read_csv(filepath)
+        df = pd.read_csv(target_path)
     except pd.errors.EmptyDataError:
-        raise ValueError(f"Production batch is empty: {filepath}")
-    except pd.errors.ParserError as e:
-        raise ValueError(f"Failed to parse production CSV: {e}")
+        raise ValueError(f"Production batch is empty: {target_path}")
+    except pd.errors.ParserError as exc:
+        raise ValueError(f"Failed to parse production CSV: {exc}")
 
-    # Validate schema (target is optional in production)
-    warnings = validate_schema(df, require_target=False)
-    for w in warnings:
-        logger.warning(w)
+    # Validate schema (target column is optional in production)
+    schema_warnings = validate_schema(df, require_target=False)
+    for warning_msg in schema_warnings:
+        logger.warning(warning_msg)
 
-    # Same cleaning as baseline
+    # Clean TotalCharges if present
     if "TotalCharges" in df.columns:
         df["TotalCharges"] = pd.to_numeric(df["TotalCharges"], errors="coerce")
 
-    # Sanitize
-    df = sanitize_dataframe(df)
-
-    logger.info(f"Loaded production batch: {len(df)} rows")
-    return df
+    sanitized_df = sanitize_dataframe(df)
+    logger.info("Loaded production batch with %d rows", len(sanitized_df))
+    return sanitized_df
 
 
-def list_production_batches() -> list:
+def list_production_batches() -> List[Path]:
     """
-    List all available production batch files.
+    List all available production batch files in PRODUCTION_DIR sorted by filename.
 
     Returns:
-        Sorted list of Path objects for each batch CSV.
+        Sorted list of Path objects for available CSV batch files.
     """
     batches = sorted(PRODUCTION_DIR.glob("*.csv"))
-    logger.info(f"Found {len(batches)} production batches")
+    logger.info("Found %d production batch file(s) in %s", len(batches), PRODUCTION_DIR)
     return batches
 
 
 def generate_production_batches(baseline_df: pd.DataFrame, seed: int = 42) -> None:
     """
-    Generate 5 simulated production data batches with different drift scenarios.
-    Each batch contains ~1000 rows sampled/modified from the baseline data.
+    Generate 5 simulated production batches demonstrating varied data drift scenarios.
 
     Scenarios:
-        1. No Drift — random sample from baseline
-        2. Mild Drift — slight shifts in numerical features
-        3. Severe Drift — large distribution changes
-        4. Missing Data Drift — increased null values
-        5. Category Drift — new unseen categorical values
+        1. batch_01_no_drift.csv: Statistical replicate of baseline.
+        2. batch_02_mild_drift.csv: Minor numerical shifts (MonthlyCharges +5-15%, tenure jitter).
+        3. batch_03_severe_drift.csv: Large distribution shifts across charges, tenure, and contracts.
+        4. batch_04_missing_data.csv: Synthetically injected missing values across multiple columns.
+        5. batch_05_category_drift.csv: Unseen categorical values (e.g. 'Crypto wallet', '5G Home').
 
     Args:
-        baseline_df: The baseline training DataFrame.
-        seed: Random seed for reproducibility.
+        baseline_df: Source baseline training DataFrame.
+        seed: Random seed for deterministic reproducibility.
     """
     rng = np.random.RandomState(seed)
     batch_size = 1000
@@ -150,8 +155,8 @@ def generate_production_batches(baseline_df: pd.DataFrame, seed: int = 42) -> No
     batch2 = baseline_df.sample(n=batch_size, replace=True, random_state=rng).reset_index(drop=True)
     batch2["MonthlyCharges"] = batch2["MonthlyCharges"] * rng.uniform(1.05, 1.15, size=batch_size)
     batch2["tenure"] = (batch2["tenure"] + rng.randint(0, 5, size=batch_size)).clip(0, 72)
-    flip_mask = rng.random(batch_size) < 0.10
-    batch2.loc[flip_mask, "SeniorCitizen"] = 1
+    senior_flip = rng.random(batch_size) < 0.10
+    batch2.loc[senior_flip, "SeniorCitizen"] = 1
     batch2.to_csv(PRODUCTION_DIR / "batch_02_mild_drift.csv", index=False)
     logger.info("Generated batch_02_mild_drift.csv")
 
@@ -162,7 +167,8 @@ def generate_production_batches(baseline_df: pd.DataFrame, seed: int = 42) -> No
     batch3["tenure"] = rng.randint(0, 12, size=batch_size)
     batch3["Contract"] = rng.choice(
         ["Month-to-month", "One year", "Two year"],
-        size=batch_size, p=[0.85, 0.10, 0.05]
+        size=batch_size,
+        p=[0.85, 0.10, 0.05],
     )
     batch3["Churn"] = rng.choice(["Yes", "No"], size=batch_size, p=[0.55, 0.45])
     batch3.to_csv(PRODUCTION_DIR / "batch_03_severe_drift.csv", index=False)
@@ -185,4 +191,4 @@ def generate_production_batches(baseline_df: pd.DataFrame, seed: int = 42) -> No
     batch5.to_csv(PRODUCTION_DIR / "batch_05_category_drift.csv", index=False)
     logger.info("Generated batch_05_category_drift.csv")
 
-    logger.info("All 5 production batches generated successfully.")
+    logger.info("Successfully generated all 5 simulated production batches.")

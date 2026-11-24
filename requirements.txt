@@ -1,22 +1,22 @@
-# Data Drift Detection System - Dependencies
-# Core
-pandas>=2.0.0
-numpy>=1.24.0
-scikit-learn>=1.3.0
-scipy>=1.11.0
-xgboost>=2.0.0
-joblib>=1.3.0
+# ==============================================================================
+# Data Drift Detection System - Production Dependencies
+# ==============================================================================
 
-# Visualization
-matplotlib>=3.7.0
-seaborn>=0.12.0
-plotly>=5.15.0
+# Core Machine Learning & Data Processing
+pandas>=2.0.0,<3.1.0
+numpy>=1.24.0,<2.5.0
+scikit-learn>=1.3.0,<1.9.0
+scipy>=1.11.0,<1.18.0
+xgboost>=2.0.0,<3.3.0
+joblib>=1.3.0,<1.6.0
 
-# Dashboard
-streamlit>=1.28.0
+# Visualization & Reporting
+matplotlib>=3.7.0,<3.11.0
+seaborn>=0.12.0,<0.14.0
+plotly>=5.15.0,<6.8.0
 
-# Testing
-pytest>=7.4.0
+# Web Application & Dashboard
+streamlit>=1.28.0,<1.58.0
 
-# Utilities
-openpyxl>=3.1.0
+# File Formats & System Utilities
+openpyxl>=3.1.0,<3.2.0

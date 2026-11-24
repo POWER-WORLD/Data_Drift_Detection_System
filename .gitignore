@@ -1,49 +1,102 @@
-# Python
+# ==============================================================================
+# Global & Project .gitignore - Data Drift Detection System
+# ==============================================================================
+
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
+*.pyd
 
-# Virtual environment
+# Virtual Environments
 venv/
 .venv/
+env/
 ENV/
+env.bak/
+venv.bak/
 
-# IDE
+# IDE & Editor Directories
 .vscode/
 .idea/
 *.swp
 *.swo
+*.sublime-workspace
+*.sublime-project
 
-# Distribution
-*.egg-info/
-dist/
+# Distribution / Packaging
 build/
+dist/
+*.egg-info/
 *.egg
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+parts/
+var/
+sdist/
+wheels/
+share/python-wheels/
 
-# Generated artifacts (keep structure, ignore contents)
+# Testing & Quality Assurance
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter Notebooks Checkpoints
+.ipynb_checkpoints/
+notebooks/.ipynb_checkpoints/
+
+# Secrets, Credentials & Local Environment
+.env
+.env.*
+*.env
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+*.kdbx
+*.pkcs12
+id_rsa*
+credentials.json
+.streamlit/secrets.toml
+
+# Runtime Artifacts & Dynamic Outputs (keep directories via .gitkeep if needed)
 models/*.joblib
 models/*.json
 logs/*.log
 logs/*.json
-reports/
+reports/*/
+reports/*.csv
+reports/*.json
 data/production/*.csv
 !data/baseline/
+!data/production/.gitkeep
 
-# OS files
+# Deployment Platform Artifacts
+.vercel/
+.netlify/
+node_modules/
+
+# Operating System Files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
-
-# Pytest
-.pytest_cache/
-
-# Jupyter
-.ipynb_checkpoints/
-notebooks/*.ipynb
-
-# Environment variables
-.env
-.env.local
-
-# Streamlit
-.streamlit/secrets.toml
+desktop.ini
+*~

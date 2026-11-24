@@ -1,0 +1,34 @@
+# Exclude test files, cache, and non-runtime assets from Vercel Lambda bundle
+# Keeps Serverless Function size well below Vercel's 500 MB uncompressed limit
+
+# Tests & Cache
+tests/
+.pytest_cache/
+scratch/
+notebooks/
+
+# Documentation & Image Media
+images/
+*.md
+LICENSE
+
+# Generated Reports & Logs
+reports/
+logs/
+*.log
+
+# Git & Containers
+.git/
+.github/
+.gitignore
+.dockerignore
+Dockerfile
+
+# Development Requirements & Virtualenvs
+requirements-dev.txt
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
